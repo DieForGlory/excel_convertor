@@ -1,0 +1,284 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 2em;
+    background-color: #f4f4f9;
+    color: #333;
+}
+
+.container {
+    max-width: 800px;
+    margin: auto;
+    background: white;
+    padding: 2em;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+h1 {
+    color: #111;
+    text-align: center;
+}
+
+.form-group {
+    margin-bottom: 1.5em;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+}
+
+input[type="file"],
+input[type="text"],
+select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-size: 16px;
+}
+
+input[type="file"] {
+    padding: 8px;
+}
+
+input:focus,
+select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    outline: none;
+}
+
+.rule {
+    display: flex;
+    gap: 1em;
+    align-items: center;
+    padding: 1em;
+    border: 1px dashed #ddd;
+    border-radius: 6px;
+    margin-bottom: 1em;
+}
+
+.rule-inputs {
+    flex-grow: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1em;
+}
+
+.range-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1em;
+}
+
+.btn {
+    font-size: 16px;
+    font-weight: 600;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+    width: 100%;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+#progress-container {
+    margin-bottom: 1.5em;
+}
+
+#progress-bar-wrapper {
+    background-color: #e9ecef;
+    border-radius: 6px;
+    padding: 4px;
+}
+
+#progress-bar {
+    width: 0%;
+    height: 24px;
+    background-color: #007bff;
+    border-radius: 4px;
+    text-align: center;
+    color: white;
+    line-height: 24px;
+    font-weight: bold;
+    transition: width 0.4s ease;
+}
+
+#progress-status {
+    text-align: center;
+    margin-bottom: 0.5em;
+    color: #555;
+}
+
+hr {
+    margin: 2em 0;
+    border: none;
+    border-top: 1px solid #eee;
+}
+
+.nav-link {
+    text-align: center;
+    margin-top: 2em;
+}
+/* --- Стили для хедера --- */
+.main-header {
+    background-color: #fff;
+    padding: 1em 0;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 2em;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #333;
+    text-decoration: none;
+}
+
+.main-nav a {
+    margin-left: 1.5em;
+    text-decoration: none;
+    color: #555;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.main-nav a:hover {
+    color: #007bff;
+}
+
+/* Убираем лишний отступ у основного контейнера */
+.main-content .container {
+    box-shadow: none;
+    padding: 0;
+}
+/* --- Стили для страницы словаря --- */
+.dictionary-layout {
+    display: flex;
+    gap: 2em;
+    align-items: flex-start;
+}
+
+.add-entry-card {
+    flex: 1;
+    background-color: #f8f9fa;
+    padding: 1.5em;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    position: sticky; /* Делаем форму "липкой" при прокрутке */
+    top: 2em;
+}
+
+.dictionary-list {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+
+.dictionary-entry-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1.5em;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.8em;
+}
+
+.canonical-name {
+    font-size: 1.3em;
+    font-weight: 600;
+    color: #0056b3;
+}
+
+.synonym-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+}
+
+.synonym-tag {
+    background: #e9ecef;
+    color: #495057;
+    border-radius: 4px;
+    padding: 0.3em 0.7em;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.5em;
+    color: #dc3545;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+    opacity: 1;
+}
+.edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.5em;
+    color: #007bff;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    vertical-align: middle;
+}
+.edit-btn:hover {
+    opacity: 1;
+}

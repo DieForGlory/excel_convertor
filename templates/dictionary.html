@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Управление словарем{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="text-align: center; margin-bottom: 2em;">
+        <h1>Словарь сопоставления заголовков</h1>
+        <p class="instruction-text">Научите систему распознавать разные варианты названий для одних и тех же столбцов.</p>
+    </div>
+
+    <div class="dictionary-layout">
+
+        <aside class="add-entry-card">
+            <h3>Добавить запись</h3>
+            <form action="/dictionary/add" method="POST">
+                <div class="form-group">
+                    <label for="canonical_name">Основное название</label>
+                    <input type="text" id="canonical_name" name="canonical_name" placeholder="Например, ClientFullName" required>
+                </div>
+                <div class="form-group">
+                    <label for="synonyms">Варианты (разделитель: @1!)</label>
+                    <input type="text" id="synonyms" name="synonyms" placeholder="ФИО Клиента@1!клиент@1!Ф.И.О." required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Сохранить</button>
+            </form>
+        </aside>
+
+        <main class="dictionary-list">
+            {% if dictionary %}
+                {% for name, synonyms in dictionary.items() %}
+                <div class="dictionary-entry-card">
+                    <div class="entry-header">
+                        <h2 class="canonical-name">{{ name }}</h2>
+                        <div>
+                            <button class="edit-btn" title="Редактировать/Добавить синонимы"
+                                    onclick="editEntry('{{ name }}', '{{ synonyms|join('@1!') }}')">✏️</button>
+                            <form action="/dictionary/delete" method="POST" onsubmit="return confirm('Вы уверены?');" style="display: inline;">
+                                <input type="hidden" name="canonical_name" value="{{ name }}">
+                                <button type="submit" class="delete-btn" title="Удалить запись">🗑️</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="synonym-tags">
+                        {% for synonym in synonyms %}
+                            <span class="synonym-tag">{{ synonym }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-templates" style="width: 100%;">
+                    <p>Словарь пока пуст.</p>
+                </div>
+            {% endif %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function editEntry(name, synonyms) {
+        document.getElementById('canonical_name').value = name;
+        // ИЗМЕНЕНИЕ 3: Обновляем разделитель в JS
+        document.getElementById('synonyms').value = synonyms + '@1!';
+
+        document.getElementById('form-title').textContent = 'Редактирование: ' + name;
+        document.getElementById('canonical_name').readOnly = true;
+        document.getElementById('synonyms').focus();
+    }
+</script>
+{% endblock %}
