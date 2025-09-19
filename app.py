@@ -4,20 +4,19 @@ import uuid
 import threading
 import json
 import glob
-from flask import Flask, render_template, request, send_from_directory, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, send_from_directory, jsonify, flash, redirect, url_for, send_file
 from werkzeug.utils import secure_filename
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 from thefuzz import fuzz
 from dadata import Dadata
+import io  # Добавлено для работы с файлами в памяти
 
 import dictionary_matcher
 
 # --- 1. Конфигурация приложения ---
-UPLOAD_FOLDER = 'uploads'
-PROCESSED_FOLDER = 'processed'
 TEMPLATES_DB_FOLDER = 'templates_db'
-ALLOWED_EXTENSIONS = {'xlsx', 'xlsm'}  # <--- ИЗМЕНЕНО: Добавлена поддержка .xlsm
+ALLOWED_EXTENSIONS = {'xlsx', 'xlsm'}
 
 # --- НОВАЯ КОНФИГУРАЦИЯ DADATA ---
 DADATA_API_KEY = "ВАШ_API_КЛЮЧ"
@@ -25,14 +24,12 @@ DADATA_SECRET_KEY = "ВАШ_СЕКРЕТНЫЙ_КЛЮЧ"
 
 app = Flask(__name__)
 app.config.from_mapping(
-    UPLOAD_FOLDER=UPLOAD_FOLDER,
-    PROCESSED_FOLDER=PROCESSED_FOLDER,
     TEMPLATES_DB_FOLDER=TEMPLATES_DB_FOLDER,
     SECRET_KEY='your-super-secret-key-change-it-for-production'
 )
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+# --- УДАЛЕНО: Создание папок 'uploads' и 'processed'
+
 os.makedirs(TEMPLATES_DB_FOLDER, exist_ok=True)
 
 # --- 2. Глобальное хранилище статусов задач ---
@@ -68,7 +65,6 @@ def find_column_indices(worksheet, start_row, headers_to_find):
     return indices
 
 
-# --- ОБНОВЛЕННАЯ ФУНКЦИЯ ПОСТ-ОБРАБОТКИ С DADATA (без изменений) ---
 def apply_post_processing(task_id, workbook, start_row, function_name):
     if function_name == 'none' or not function_name:
         return
@@ -91,7 +87,8 @@ def apply_post_processing(task_id, workbook, start_row, function_name):
 
         if coords_to_process:
             try:
-                task_statuses[task_id]['status'] = f"Геокодирование (координаты->адрес): {len(coords_to_process)} адресов..."
+                task_statuses[task_id][
+                    'status'] = f"Геокодирование (координаты->адрес): {len(coords_to_process)} адресов..."
                 results = dadata.geolocate(name="address", queries=coords_to_process)
                 for i, result in enumerate(results):
                     if result and result['suggestions']:
@@ -114,7 +111,8 @@ def apply_post_processing(task_id, workbook, start_row, function_name):
 
         if addresses_to_process:
             try:
-                task_statuses[task_id]['status'] = f"Геокодирование (адрес->координаты): {len(addresses_to_process)} адресов..."
+                task_statuses[task_id][
+                    'status'] = f"Геокодирование (адрес->координаты): {len(addresses_to_process)} адресов..."
                 results = dadata.clean(name="address", source=addresses_to_process)
                 for i, result in enumerate(results):
                     if result and result['geo_lat'] and result['geo_lon']:
@@ -123,8 +121,7 @@ def apply_post_processing(task_id, workbook, start_row, function_name):
             except Exception as e:
                 print(f"Ошибка геокодирования DaData: {e}")
 
-# --- Функции рефакторинга (без изменений) ---
-# ... (вставьте сюда ваш рефакторингованный код из предыдущего шага)
+
 def _apply_manual_rules(source_ws, template_ws, rules, s_start_row, t_start_row, used_source_cols, used_template_cols):
     """Применяет правила, заданные вручную (частные и из шаблона)."""
     s_end_row = source_ws.max_row
@@ -140,16 +137,15 @@ def _apply_manual_rules(source_ws, template_ws, rules, s_start_row, t_start_row,
         if s_col_idx in used_source_cols or t_col_idx in used_template_cols:
             continue
 
-        for i, row in enumerate(source_ws.iter_rows(min_row=s_start_row + 1, max_row=s_end_row, min_col=s_col_idx, max_col=s_col_idx)):
+        for i, row in enumerate(
+                source_ws.iter_rows(min_row=s_start_row + 1, max_row=s_end_row, min_col=s_col_idx, max_col=s_col_idx)):
             source_cell = row[0]
             target_cell = template_ws.cell(row=t_start_row + 1 + i, column=t_col_idx)
 
-            # --- НОВАЯ ЛОГИКА ---
             target_cell.value = source_cell.value
             if source_cell.hyperlink:
                 target_cell.hyperlink = source_cell.hyperlink.target
                 target_cell.style = "Hyperlink"
-            # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
         used_source_cols.add(s_col_idx)
         used_template_cols.add(t_col_idx)
@@ -177,12 +173,10 @@ def _apply_dictionary_matching(source_ws, template_ws, s_start_row, t_start_row,
                     source_cell = row[0]
                     target_cell = template_ws.cell(row=t_start_row + 1 + i, column=t_col_idx)
 
-                    # --- НОВАЯ ЛОГИКА ---
                     target_cell.value = source_cell.value
                     if source_cell.hyperlink:
                         target_cell.hyperlink = source_cell.hyperlink.target
                         target_cell.style = "Hyperlink"
-                    # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
                 used_source_cols.add(s_col_idx)
                 used_template_cols.add(t_col_idx)
@@ -216,12 +210,10 @@ def _apply_auto_matching(source_ws, template_ws, s_start_row, t_start_row, used_
             source_cell = row[s_col - 1]
             target_cell = template_ws.cell(row=t_start_row + 1 + i, column=t_col)
 
-            # --- НОВАЯ ЛОГИКА ---
             target_cell.value = source_cell.value
             if source_cell.hyperlink:
                 target_cell.hyperlink = source_cell.hyperlink.target
                 target_cell.style = "Hyperlink"
-            # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
         if (i + 1) % 100 == 0:
             task_statuses[task_id]['status'] = f'Автоматическое копирование: строка {i + 1}'
@@ -229,7 +221,6 @@ def _apply_auto_matching(source_ws, template_ws, s_start_row, t_start_row, used_
 
 @app.route('/templates/edit/<template_id>', methods=['GET', 'POST'])
 def edit_template(template_id):
-    # --- ДИАГНОСТИКА 1 ---
     print(f"--- ВХОД В ФУНКЦИЮ edit_template ---")
     print(f"Метод запроса: {request.method}")
     print(f"ID шаблона из URL: '{template_id}'")
@@ -241,17 +232,14 @@ def edit_template(template_id):
         return redirect(url_for('templates_list'))
 
     if request.method == 'POST':
-        # --- ДИАГНОСТИКА 2 ---
         print(f"--> Зашли в блок POST для ID: '{template_id}'")
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
                 template_data = json.load(f)
 
-            # Обновляем данные из формы
             template_data['template_name'] = request.form.get('template_name')
             template_data['header_start_cell'] = request.form.get('header_start_cell').upper()
 
-            # Обновляем правила
             rules = []
             source_cells = request.form.getlist('source_cell')
             template_cols = request.form.getlist('template_col')
@@ -263,7 +251,6 @@ def edit_template(template_id):
                     })
             template_data['rules'] = rules
 
-            # Сохраняем обновленные данные в JSON
             with open(json_path, 'w', encoding='utf-8') as f:
                 json.dump(template_data, f, ensure_ascii=False, indent=4)
 
@@ -275,44 +262,52 @@ def edit_template(template_id):
             flash(f"Произошла ошибка при обновлении: {e}", "error")
             return redirect(url_for('edit_template', template_id=template_id))
 
-    # --- ДИАГНОСТИКА 3 ---
     print(f"--> Зашли в блок GET. Готовим страницу для ID: '{template_id}'")
-    # При GET-запросе просто показываем форму с текущими данными
     with open(json_path, 'r', encoding='utf-8') as f:
         template_data = json.load(f)
 
     return render_template('edit_template.html', template=template_data, template_id=template_id)
 
 
-
-# --- 4. Основная функция обработки (без изменений) ---
-def process_excel_hybrid(task_id, source_path, template_path, ranges, template_rules, private_rules, post_function):
+# --- 4. Основная функция обработки (ОБНОВЛЕНА) ---
+def process_excel_hybrid(task_id, source_file_obj, template_file_obj, ranges, template_rules, private_rules,
+                         post_function):
+    """
+    Обрабатывает файлы Excel, используя потоки в памяти.
+    """
     try:
         task_statuses[task_id] = {'progress': 5, 'status': 'Подготовка...'}
-        source_wb = load_workbook(source_path)
+        # ЗАМЕНА: Загрузка из потоков в памяти
+        source_wb = load_workbook(filename=source_file_obj)
         source_ws = source_wb.active
-        template_wb = load_workbook(template_path)
+        template_wb = load_workbook(filename=template_file_obj)
         template_ws = template_wb.active
 
         s_start_row, t_start_row = ranges['s_start_row'], ranges['t_start_row']
         used_source_cols, used_template_cols = set(), set()
 
         task_statuses[task_id]['status'] = 'Выполняю частные правила...'
-        _apply_manual_rules(source_ws, template_ws, private_rules, s_start_row, t_start_row, used_source_cols, used_template_cols)
+        _apply_manual_rules(source_ws, template_ws, private_rules, s_start_row, t_start_row, used_source_cols,
+                            used_template_cols)
         task_statuses[task_id]['status'] = 'Применяю правила из шаблона...'
-        _apply_manual_rules(source_ws, template_ws, template_rules, s_start_row, t_start_row, used_source_cols, used_template_cols)
+        _apply_manual_rules(source_ws, template_ws, template_rules, s_start_row, t_start_row, used_source_cols,
+                            used_template_cols)
         task_statuses[task_id]['status'] = 'Проверяю по словарю...'
-        _apply_dictionary_matching(source_ws, template_ws, s_start_row, t_start_row, used_source_cols, used_template_cols)
+        _apply_dictionary_matching(source_ws, template_ws, s_start_row, t_start_row, used_source_cols,
+                                   used_template_cols)
         task_statuses[task_id]['status'] = 'Ищу автоматические совпадения...'
-        _apply_auto_matching(source_ws, template_ws, s_start_row, t_start_row, used_source_cols, used_template_cols, task_id)
+        _apply_auto_matching(source_ws, template_ws, s_start_row, t_start_row, used_source_cols, used_template_cols,
+                             task_id)
         task_statuses[task_id]['status'] = 'Запускаю пост-обработку...'
         apply_post_processing(task_id, template_wb, t_start_row, post_function)
 
         task_statuses[task_id]['status'] = 'Сохраняю результат...'
-        processed_filename = f"{task_id}.xlsx"
-        template_wb.save(os.path.join(app.config['PROCESSED_FOLDER'], processed_filename))
+        processed_file_obj = io.BytesIO()
+        template_wb.save(processed_file_obj)
+        processed_file_obj.seek(0)
         source_wb.close()
-        task_statuses[task_id].update({'progress': 100, 'status': 'Готово!', 'result_file': processed_filename})
+        template_wb.close()
+        task_statuses[task_id].update({'progress': 100, 'status': 'Готово!', 'result_file': processed_file_obj})
 
     except Exception as e:
         task_statuses[task_id].update({'progress': 100, 'status': f"Ошибка: {e}", 'result_file': None})
@@ -322,7 +317,6 @@ def process_excel_hybrid(task_id, source_path, template_path, ranges, template_r
 
 @app.route('/templates')
 def templates_list():
-    # ... (код без изменений)
     template_files = glob.glob(os.path.join(app.config['TEMPLATES_DB_FOLDER'], '*.json'))
     templates_data = []
     for f in template_files:
@@ -335,6 +329,7 @@ def templates_list():
             print(f"Ошибка чтения шаблона {f}: {e}")
     return render_template('templates_list.html', templates=templates_data)
 
+
 @app.route('/templates/new')
 def new_template_form():
     return render_template('create_template.html')
@@ -346,20 +341,18 @@ def create_template():
         template_name = request.form.get('template_name')
         header_start_cell = request.form.get('header_start_cell').upper()
         excel_file = request.files.get('excel_file')
-        if not (template_name and header_start_cell and excel_file and allowed_file(excel_file.filename)):
-            # <--- ИЗМЕНЕНО: Обновлен текст ошибки
-            flash("Ошибка: все поля должны быть заполнены, и файл должен быть .xlsx или .xlsm", "error");
+        if not (template_name and header_start_cell):
+            flash("Ошибка: Название и начальная ячейка должны быть заполнены.", "error");
             return redirect(url_for('new_template_form'))
-        # ... (остальной код без изменений)
+
+        # УДАЛЕНО: сохранение файла шаблона на диск
         template_id = str(uuid.uuid4());
-        excel_filename = f"{template_id}.xlsx"
-        excel_file.save(os.path.join(app.config['TEMPLATES_DB_FOLDER'], excel_filename))
         rules = []
         source_cells, template_cols = request.form.getlist('source_cell'), request.form.getlist('template_col')
         for i in range(len(source_cells)):
             if source_cells[i] and template_cols[i]: rules.append(
                 {"source_cell": source_cells[i].upper(), "template_col": template_cols[i].upper()})
-        template_data = {"template_name": template_name, "excel_file": excel_filename,
+        template_data = {"template_name": template_name, "excel_file": excel_file.filename,
                          "header_start_cell": header_start_cell, "rules": rules}
         with open(os.path.join(app.config['TEMPLATES_DB_FOLDER'], f"{template_id}.json"), 'w', encoding='utf-8') as f:
             json.dump(template_data, f, ensure_ascii=False, indent=4)
@@ -372,12 +365,11 @@ def create_template():
 
 @app.route('/dictionary')
 def dictionary_ui():
-    # ... (код без изменений)
     return render_template('dictionary.html', dictionary=dictionary_matcher.load_dictionary())
+
 
 @app.route('/dictionary/add', methods=['POST'])
 def add_to_dictionary():
-    # ... (код без изменений)
     canonical_name, synonyms = request.form.get('canonical_name'), request.form.get('synonyms')
     if canonical_name and synonyms: dictionary_matcher.add_entry(canonical_name, synonyms)
     return redirect(url_for('dictionary_ui'))
@@ -385,7 +377,6 @@ def add_to_dictionary():
 
 @app.route('/dictionary/delete', methods=['POST'])
 def delete_from_dictionary():
-    # ... (код без изменений)
     canonical_name = request.form.get('canonical_name')
     if canonical_name: dictionary_matcher.delete_entry(canonical_name)
     return redirect(url_for('dictionary_ui'))
@@ -393,7 +384,6 @@ def delete_from_dictionary():
 
 @app.route('/')
 def index():
-    # ... (код без изменений)
     template_files = glob.glob(os.path.join(app.config['TEMPLATES_DB_FOLDER'], '*.json'))
     templates_data = []
     for f in template_files:
@@ -412,26 +402,37 @@ def process_files():
     try:
         source_file = request.files.get('source_file')
         if not (source_file and source_file.filename and allowed_file(source_file.filename)):
-            # <--- ИЗМЕНЕНО: Обновлен текст ошибки
             return jsonify({'error': 'Исходный файл .xlsx или .xlsm должен быть загружен.'}), 400
-        source_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(source_file.filename));
-        source_file.save(source_path)
+
+        # ЧТЕНИЕ ФАЙЛОВ В ПАМЯТЬ
+        source_file_obj = io.BytesIO(source_file.read())
 
         template_rules, selected_template_id = [], request.form.get('saved_template')
         if selected_template_id:
             json_path = os.path.join(app.config['TEMPLATES_DB_FOLDER'], f"{selected_template_id}.json")
             with open(json_path, 'r', encoding='utf-8') as f:
                 template_info = json.load(f)
-            template_path = os.path.join(app.config['TEMPLATES_DB_FOLDER'], template_info['excel_file'])
-            template_rules, t_start_cell = template_info.get('rules', []), template_info['header_start_cell']
+            # УДАЛЕНО: загрузка excel файла с диска
+            # Добавлено: создание пустого объекта openpyxl
+            from openpyxl import Workbook
+            template_wb = Workbook()
+            template_ws = template_wb.active
+            # Это заглушка, так как openpyxl требует объект для работы, но в шаблоне
+            # нам важны только правила, а не сам файл.
+            template_file_obj = io.BytesIO()
+            template_wb.save(template_file_obj)
+            template_file_obj.seek(0)
+            t_start_cell = template_info['header_start_cell']
+            template_rules = template_info.get('rules', [])
         else:
             template_file = request.files.get('template_file')
             if not (template_file and template_file.filename and allowed_file(template_file.filename)):
-                 # <--- ИЗМЕНЕНО: Обновлен текст ошибки
                 return jsonify({'error': 'Если шаблон не выбран, его нужно загрузить вручную (.xlsx или .xlsm).'}), 400
-            template_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(template_file.filename));
-            template_file.save(template_path)
+            # ЧТЕНИЕ ФАЙЛА В ПАМЯТЬ
+            template_file_obj = io.BytesIO(template_file.read())
             t_start_cell = request.form.get('template_range_start').upper()
+
+        # УДАЛЕНО: сохранение файлов на диск
 
         ranges = {
             's_start_row': int(re.search(r'\d+', request.form.get('source_range_start').upper()).group()),
@@ -445,7 +446,7 @@ def process_files():
         post_function = request.form.get('post_processing_function', 'none')
         task_id = str(uuid.uuid4())
         thread = threading.Thread(target=process_excel_hybrid, args=(
-            task_id, source_path, template_path, ranges, template_rules, private_rules, post_function))
+            task_id, source_file_obj, template_file_obj, ranges, template_rules, private_rules, post_function))
         thread.start()
         return jsonify({'task_id': task_id})
     except Exception as e:
@@ -454,7 +455,24 @@ def process_files():
 
 @app.route('/status/<task_id>')
 def task_status(task_id):
-    return jsonify(task_statuses.get(task_id, {}))
+    status_info = task_statuses.get(task_id, {})
+    if status_info.get('result_file'):
+        # Если обработка завершена, возвращаем статус и название файла
+        file_name = f"processed_{task_id}.xlsx"
+        return jsonify({'status': status_info['status'], 'progress': status_info['progress'], 'result_file': file_name})
+    return jsonify(status_info)
+
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    task_id = filename.split('.')[0].replace('processed_', '')
+    status_info = task_statuses.get(task_id)
+    if status_info and status_info.get('result_file'):
+        file_obj = status_info['result_file']
+        return send_file(file_obj, as_attachment=True, download_name=filename,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    return "Файл не найден или обработка еще не завершена.", 404
+
 
 def get_cell_content(cell):
     """
@@ -464,9 +482,7 @@ def get_cell_content(cell):
     if cell.hyperlink and cell.hyperlink.target:
         return f"{cell.value} ({cell.hyperlink.target})"
     return cell.value
-@app.route('/download/<filename>')
-def download_file(filename):
-    return send_from_directory(app.config['PROCESSED_FOLDER'], filename, as_attachment=True)
+
 
 
 if __name__ == '__main__':
