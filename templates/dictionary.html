@@ -12,8 +12,8 @@
     <div class="dictionary-layout">
 
         <aside class="add-entry-card">
-            <h3>Добавить запись</h3>
-            <form action="/dictionary/add" method="POST">
+            <h3 id="form-title">Добавить запись</h3>
+            <form action="/dictionary/add" method="POST" id="dictionary-form">
                 <div class="form-group">
                     <label for="canonical_name">Основное название</label>
                     <input type="text" id="canonical_name" name="canonical_name" placeholder="Например, ClientFullName" required>
@@ -23,6 +23,7 @@
                     <input type="text" id="synonyms" name="synonyms" placeholder="ФИО Клиента@1!клиент@1!Ф.И.О." required>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Сохранить</button>
+                <button type="button" id="cancel-edit-btn" class="btn" style="width: 100%; margin-top: 10px; display: none;" onclick="cancelEdit()">Отменить</button>
             </form>
         </aside>
 
@@ -60,14 +61,33 @@
 
 {% block scripts %}
 <script>
+    // Функция для перехода в режим редактирования
     function editEntry(name, synonyms) {
-        document.getElementById('canonical_name').value = name;
-        // ИЗМЕНЕНИЕ 3: Обновляем разделитель в JS
-        document.getElementById('synonyms').value = synonyms + '@1!';
-
+        // Меняем заголовок и показываем кнопку отмены
         document.getElementById('form-title').textContent = 'Редактирование: ' + name;
+        document.getElementById('cancel-edit-btn').style.display = 'block';
+
+        // Заполняем поля формы (без лишнего разделителя!)
+        document.getElementById('canonical_name').value = name;
+        document.getElementById('synonyms').value = synonyms;
+
+        // Блокируем поле с основным названием
         document.getElementById('canonical_name').readOnly = true;
-        document.getElementById('synonyms').focus();
+        document.getElementById('synonyms').focus(); // Ставим курсор в поле синонимов
+        window.scrollTo(0, 0); // Прокручиваем страницу наверх к форме
+    }
+
+    // Функция для отмены редактирования и сброса формы
+    function cancelEdit() {
+        // Возвращаем заголовок и прячем кнопку отмены
+        document.getElementById('form-title').textContent = 'Добавить запись';
+        document.getElementById('cancel-edit-btn').style.display = 'none';
+
+        // Разблокируем поле с основным названием
+        document.getElementById('canonical_name').readOnly = false;
+
+        // Сбрасываем все поля формы
+        document.getElementById('dictionary-form').reset();
     }
 </script>
 {% endblock %}

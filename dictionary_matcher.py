@@ -47,28 +47,23 @@ def get_reverse_dictionary(data=None):
 
 def add_entry(canonical_name, synonyms_str):
     """
-    Добавляет или обновляет запись в словаре.
-    Если каноничное имя уже существует, добавляет новые уникальные синонимы к существующему списку.
+    Добавляет или ОБНОВЛЯЕТ запись в словаре.
+    При редактировании полностью заменяет старый список синонимов новым.
     """
     dictionary = load_dictionary()
     canonical_name = canonical_name.strip()
 
-    # ИЗМЕНЕНИЕ ЗДЕСЬ: меняем разделитель с ',' на '@1!'
+    # Разбираем строку с синонимами в множество, чтобы убрать дубликаты и пустые строки
     new_synonyms = {s.strip() for s in synonyms_str.split('@1!') if s.strip()}
 
-    # Если такая запись уже есть в словаре
-    if canonical_name in dictionary:
-        # Превращаем существующий список синонимов в множество
-        existing_synonyms = set(dictionary[canonical_name])
-        # Объединяем его с новыми синонимами
-        updated_synonyms = existing_synonyms.union(new_synonyms)
-        # Сохраняем обратно как отсортированный список для красивого вывода
-        dictionary[canonical_name] = sorted(list(updated_synonyms))
-    else:
-        # Если это новая запись, просто добавляем
-        dictionary[canonical_name] = sorted(list(new_synonyms))
+    # --- ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ---
+    # Мы больше не объединяем старый и новый списки.
+    # Мы просто присваиваем новое значение.
+    # Это работает и для создания новой записи, и для полного обновления существующей.
+    dictionary[canonical_name] = sorted(list(new_synonyms))
 
     save_dictionary(dictionary)
+    print(f"  [ЛОГ СЛОВАРЯ] Запись '{canonical_name}' сохранена с синонимами: {dictionary[canonical_name]}")
 
 
 def delete_entry(canonical_name):

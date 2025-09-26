@@ -1,200 +1,177 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Инициализация для главной страницы ---
-    if (document.getElementById('upload-form')) {
-        initIndexPage();
-    }
 
-    // --- Инициализация для страницы создания/редактирования шаблона ---
-    if (document.querySelector('form[action*="/templates/"]')) {
-        initTemplatePage();
-    }
-});
+    // --- ЛОГИКА ВАЛИДАЦИИ ФОРМЫ ---
+    function validateForm() {
+        const errors = [];
+        const cellRegex = /^[A-Z]+[1-9][0-9]*$/i; // Регулярное выражение для ячеек типа A1, B12
+        const allowedExtensions = ['xlsx', 'xlsm'];
 
-/**
- * Инициализирует все скрипты для главной страницы (index.html)
- */
-function initIndexPage() {
-    const savedTemplateSelect = document.getElementById('saved_template');
-    const uploadForm = document.getElementById('upload-form');
-    const addRuleButton = document.querySelector('#rules-container + .btn-secondary');
+        const sourceFile = document.getElementById('source_file').files[0];
+        const sourceRange = document.getElementById('source_range_start').value;
+        const savedTemplate = document.getElementById('saved_template').value;
+        const templateFile = document.getElementById('template_file').files[0];
+        const templateRange = document.getElementById('template_range_start').value;
 
-    savedTemplateSelect.addEventListener('change', toggleManualTemplateFields);
-    toggleManualTemplateFields();
-
-    if (addRuleButton) {
-        addRuleButton.addEventListener('click', () => addRule('index'));
-    }
-
-    uploadForm.addEventListener('submit', handleFormSubmit);
-}
-
-/**
- * Инициализирует скрипты для страниц создания и редактирования шаблонов.
- */
-function initTemplatePage() {
-    const addRuleButton = document.querySelector('#rules-container + .btn-secondary');
-    if (addRuleButton) {
-        addRuleButton.addEventListener('click', () => addRule('template'));
-
-        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-        // Добавляем пустое правило, только если это страница СОЗДАНИЯ (/new)
-        // и на ней еще нет ни одного правила.
-        if (window.location.pathname.includes('/new') && !document.querySelector('.rule')) {
-            addRule('template');
-        }
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-    }
-
-    // Этот код корректно навешивает обработчики на уже существующие кнопки "X" на странице редактирования
-    document.querySelectorAll('.rule .btn-danger').forEach(button => {
-        const ruleDiv = button.closest('.rule');
-        if(ruleDiv) {
-            button.addEventListener('click', () => removeRule(ruleDiv.id));
-        }
-    });
-}
-
-
-/**
- * Переключает видимость полей для ручной загрузки ШАБЛОНА на главной странице.
- */
-function toggleManualTemplateFields() {
-    const savedTemplateSelect = document.getElementById('saved_template');
-    const manualTemplateContainer = document.getElementById('manual-template-container');
-    const templateRangeContainer = document.getElementById('template-range-container');
-    const templateFileInput = document.getElementById('template_file');
-    const templateRangeInput = document.getElementById('template_range_start');
-
-    if (savedTemplateSelect.value) {
-        manualTemplateContainer.style.display = 'none';
-        templateRangeContainer.style.display = 'none';
-        templateFileInput.removeAttribute('required');
-        templateRangeInput.removeAttribute('required');
-    } else {
-        manualTemplateContainer.style.display = 'block';
-        templateRangeContainer.style.display = 'block';
-        templateFileInput.setAttribute('required', 'required');
-        templateRangeInput.setAttribute('required', 'required');
-    }
-}
-
-/**
- * Добавляет новое поле для правила сопоставления.
- * @param {string} pageType - 'index' или 'template' для определения типа полей.
- */
-function addRule(pageType = 'index') {
-    const container = document.getElementById('rules-container');
-    if (!container) return;
-
-    const ruleId = `rule-${Date.now()}`;
-    const ruleDiv = document.createElement('div');
-    ruleDiv.className = 'rule';
-    ruleDiv.id = ruleId;
-
-    let ruleHtml = '';
-    if (pageType === 'template') {
-        ruleHtml = `
-            <div class="rule-inputs" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Ячейка в исходнике</label>
-                    <input type="text" name="source_cell" placeholder="напр. A1" required>
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Столбец в шаблоне</label>
-                    <input type="text" name="template_col" placeholder="напр. C" required>
-                </div>
-            </div>
-            <button type="button" class="btn btn-danger">X</button>
-        `;
-    } else {
-        ruleHtml = `
-            <div class="rule-inputs">
-                <input type="text" name="manual_source_col" placeholder="Столбец в исходнике (напр. A)" required>
-                <input type="text" name="manual_template_col" placeholder="Столбец в шаблоне (напр. C)" required>
-            </div>
-            <button type="button" class="btn btn-danger">X</button>
-        `;
-    }
-
-    ruleDiv.innerHTML = ruleHtml;
-    ruleDiv.querySelector('.btn-danger').addEventListener('click', () => removeRule(ruleId));
-
-    container.appendChild(ruleDiv);
-}
-
-/**
- * Удаляет поле для правила сопоставления.
- * @param {string} id - Уникальный ID элемента правила.
- */
-function removeRule(id) {
-    const ruleElement = document.getElementById(id);
-    if (ruleElement) {
-        ruleElement.remove();
-    }
-}
-
-
-// --- Логика отправки формы и опроса статуса (без изменений) ---
-let pollingInterval;
-async function handleFormSubmit(event) {
-    event.preventDefault();
-    const form = event.target;
-    const submitButton = form.querySelector('button[type="submit"]');
-    const progressBarContainer = document.getElementById('progress-container');
-    const formData = new FormData(form);
-    progressBarContainer.style.display = 'block';
-    submitButton.disabled = true;
-    submitButton.textContent = 'Обработка...';
-    updateProgress(0, 'Загрузка файлов на сервер...');
-    try {
-        const response = await fetch('/process', { method: 'POST', body: formData });
-        const result = await response.json();
-        if (response.ok && result.task_id) {
-            updateProgress(5, 'Файлы загружены, начинаю обработку...');
-            pollingInterval = setInterval(() => pollStatus(result.task_id), 2000);
+        // 1. Проверка исходного файла
+        if (!sourceFile) {
+            errors.push('Необходимо загрузить исходный файл.');
         } else {
-            throw new Error(result.error || 'Неизвестная ошибка сервера.');
-        }
-    } catch (error) {
-        updateProgress(0, `Ошибка отправки: ${error.message}`, true);
-        submitButton.disabled = false;
-        submitButton.textContent = 'Обработать и скачать';
-    }
-}
-async function pollStatus(taskId) {
-    const submitButton = document.querySelector('#upload-form button[type="submit"]');
-    const progressBarContainer = document.getElementById('progress-container');
-    try {
-        const statusResponse = await fetch(`/status/${taskId}`);
-        const statusData = await statusResponse.json();
-        updateProgress(statusData.progress, statusData.status, statusData.status.startsWith('Ошибка:'));
-        if (statusData.progress >= 100) {
-            clearInterval(pollingInterval);
-            submitButton.disabled = false;
-            submitButton.textContent = 'Обработать и скачать';
-            if (statusData.result_file) {
-                updateProgress(100, "Готово! Загрузка начинается...");
-                window.location.href = `/download/${statusData.result_file}`;
-                setTimeout(() => { progressBarContainer.style.display = 'none'; }, 5000);
+            const fileExt = sourceFile.name.split('.').pop().toLowerCase();
+            if (!allowedExtensions.includes(fileExt)) {
+                errors.push(`Недопустимый формат исходного файла. Разрешены только .${allowedExtensions.join(', .')}.`);
             }
         }
-    } catch (error) {
-        updateProgress(0, `Ошибка опроса статуса: ${error.message}`, true);
-        clearInterval(pollingInterval);
-        submitButton.disabled = false;
-        submitButton.textContent = 'Обработать и скачать';
+
+        // 2. Проверка ячейки исходного файла
+        if (!sourceRange) {
+            errors.push('Необходимо указать начальную ячейку для исходного файла.');
+        } else if (!cellRegex.test(sourceRange)) {
+            errors.push('Некорректный формат начальной ячейки для исходного файла (пример: A1).');
+        }
+
+        // 3. Проверка шаблона (если не выбран сохраненный)
+        if (!savedTemplate) {
+            if (!templateFile) {
+                errors.push('Если не выбран сохраненный шаблон, необходимо загрузить файл шаблона.');
+            } else {
+                 const fileExt = templateFile.name.split('.').pop().toLowerCase();
+                if (!allowedExtensions.includes(fileExt)) {
+                    errors.push(`Недопустимый формат файла шаблона. Разрешены только .${allowedExtensions.join(', .')}.`);
+                }
+            }
+
+            if (!templateRange) {
+                errors.push('Необходимо указать начальную ячейку для файла шаблона.');
+            } else if (!cellRegex.test(templateRange)) {
+                errors.push('Некорректный формат начальной ячейки для файла шаблона (пример: A1).');
+            }
+        }
+
+        return errors;
     }
-}
-function updateProgress(percentage, statusText, isError = false) {
-    const progressBar = document.getElementById('progress-bar');
-    const progressStatus = document.getElementById('progress-status');
-    percentage = Math.round(percentage) || 0;
-    progressBar.style.width = `${percentage}%`;
-    progressBar.textContent = `${percentage}%`;
-    progressStatus.textContent = `Статус: ${statusText}`;
-    if (isError) {
-        progressBar.style.backgroundColor = '#dc3545';
-    } else {
-        progressBar.style.backgroundColor = '#007bff';
+
+    // --- ОСНОВНАЯ ЛОГИКА ---
+    const form = document.getElementById('process-form');
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            event.preventDefault(); // Всегда останавливаем отправку сначала
+
+            const errorContainer = document.getElementById('error-messages');
+            const errors = validateForm();
+
+            if (errors.length > 0) {
+                // Если есть ошибки, показываем их
+                errorContainer.innerHTML = '<strong>Обнаружены ошибки:</strong><ul>' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+                errorContainer.style.display = 'block';
+                window.scrollTo(0, 0); // Прокрутить наверх, чтобы увидеть ошибки
+                return; // Прекращаем выполнение
+            } else {
+                // Если ошибок нет, скрываем контейнер и продолжаем отправку
+                errorContainer.style.display = 'none';
+            }
+
+            // Старая логика отправки формы через AJAX
+            const formData = new FormData(form);
+            const progressBar = document.getElementById('progress-bar');
+            const progressContainer = document.getElementById('progress-container');
+            const statusText = document.getElementById('status-text');
+            const downloadLink = document.getElementById('download-link');
+            const startButton = form.querySelector('button[type="submit"]');
+
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            statusText.textContent = 'Загрузка файлов на сервер...';
+            downloadLink.style.display = 'none';
+            startButton.disabled = true;
+
+            fetch('/process', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    statusText.textContent = `Ошибка: ${data.error}`;
+                    startButton.disabled = false;
+                    return;
+                }
+                statusText.textContent = 'Файлы в очереди на обработку...';
+                pollStatus(data.task_id);
+            })
+            .catch(error => {
+                statusText.textContent = `Ошибка сети: ${error}`;
+                startButton.disabled = false;
+            });
+        });
     }
-}
+
+    function pollStatus(taskId) {
+        const progressBar = document.getElementById('progress-bar');
+        const statusText = document.getElementById('status-text');
+        const downloadLink = document.getElementById('download-link');
+        const startButton = form.querySelector('button[type="submit"]');
+
+        const interval = setInterval(() => {
+            fetch(`/status/${taskId}`)
+            .then(response => response.json())
+            .then(data => {
+                progressBar.style.width = `${data.progress || 0}%`;
+                statusText.textContent = data.status || 'Ожидание...';
+
+                if ((data.progress && data.progress >= 100) || data.result_file) {
+                    clearInterval(interval);
+                    if (data.result_file) {
+                        downloadLink.href = `/download/${data.result_file}`;
+                        downloadLink.style.display = 'block';
+                        statusText.textContent = 'Обработка завершена!';
+                    }
+                    startButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                clearInterval(interval);
+                statusText.textContent = `Ошибка при проверке статуса: ${error}`;
+                startButton.disabled = false;
+            });
+        }, 2000);
+    }
+
+    // Логика для ручных правил и скрытия/показа полей шаблона
+    const savedTemplateSelect = document.getElementById('saved_template');
+    const newTemplateFields = document.getElementById('new-template-fields');
+
+    if (savedTemplateSelect && newTemplateFields) {
+         savedTemplateSelect.addEventListener('change', function() {
+            if (this.value) {
+                newTemplateFields.style.display = 'none';
+            } else {
+                newTemplateFields.style.display = 'block';
+            }
+        });
+        // Изначальная проверка при загрузке страницы
+        if (savedTemplateSelect.value) {
+            newTemplateFields.style.display = 'none';
+        }
+    }
+
+    const manualRulesContainer = document.getElementById('manual-rules-container');
+    if(manualRulesContainer) {
+        document.getElementById('add-manual-rule').addEventListener('click', function() {
+            const newRule = document.createElement('div');
+            newRule.className = 'manual-rule-row';
+            newRule.innerHTML = `
+                <input type="text" name="manual_source_col" placeholder="Колонка в исходнике (напр. A)">
+                <span>→</span>
+                <input type="text" name="manual_template_col" placeholder="Колонка в шаблоне (напр. C)">
+                <button type="button" class="remove-rule-btn">🗑️</button>
+            `;
+            manualRulesContainer.appendChild(newRule);
+        });
+
+        manualRulesContainer.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-rule-btn')) {
+                e.target.parentElement.remove();
+            }
+        });
+    }
+});

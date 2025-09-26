@@ -1,75 +1,80 @@
 {% extends "base.html" %}
 
-{% block title %}Обработка данных{% endblock %}
+{% block title %}Главная{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h1>Инструмент обработки данных</h1>
+    <h1>Конвертер Excel файлов</h1>
 
-    <div id="progress-container" style="display: none;">
-        <div id="progress-status">Статус: ожидание загрузки...</div>
-        <div id="progress-bar-wrapper">
-            <div id="progress-bar">0%</div>
+    <form id="process-form" action="/process" method="POST" enctype="multipart/form-data">
+
+        <div id="error-messages" class="error-container" style="display:none; color: #d9534f; background-color: #f2dede; border: 1px solid #ebccd1; padding: 15px; border-radius: 4px; margin-bottom: 20px;"></div>
+
+        <fieldset>
+            <legend><span class="step-icon">1</span> Исходный файл</legend>
+            <div class="form-group">
+                <label for="source_file">Файл (.xlsx, .xlsm)</label>
+                <input type="file" id="source_file" name="source_file" required accept=".xlsx, .xlsm">
+            </div>
+            <div class="form-group">
+                <label for="source_range_start">Ячейка с первым заголовком</label>
+                <input type="text" id="source_range_start" name="source_range_start" placeholder="Например, A5" required>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend><span class="step-icon">2</span> Файл-шаблон</legend>
+            <div class="form-group">
+                <label for="saved_template">Использовать сохраненный шаблон</label>
+                <select id="saved_template" name="saved_template">
+                    <option value="">-- Не использовать (загрузить вручную) --</option>
+                    {% for tpl in saved_templates %}
+                    <option value="{{ tpl.id }}">{{ tpl.template_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="new-template-fields">
+                <div class="form-group">
+                    <label for="template_file">Загрузить файл (.xlsx, .xlsm)</label>
+                    <input type="file" id="template_file" name="template_file" accept=".xlsx, .xlsm">
+                </div>
+                <div class="form-group">
+                    <label for="template_range_start">Ячейка с первым заголовком</label>
+                    <input type="text" id="template_range_start" name="template_range_start" placeholder="Например, B1">
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend><span class="step-icon">3</span> Частные правила (опционально)</legend>
+            <div id="manual-rules-container">
+                </div>
+            <button type="button" id="add-manual-rule" class="btn btn-secondary">+ Добавить правило</button>
+        </fieldset>
+
+        <fieldset>
+            <legend><span class="step-icon">4</span> Пост-обработка (Dadata)</legend>
+            <div class="form-group">
+                <label for="post_processing_function">Функция</label>
+                <select id="post_processing_function" name="post_processing_function">
+                    <option value="none">Без обработки</option>
+                    <option value="coords_to_address">Координаты → Адрес</option>
+                    <option value="address_to_coords">Адрес → Координаты</option>
+                </select>
+            </div>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary">Начать обработку</button>
+    </form>
+
+    <div id="progress-container" style="display:none; margin-top: 20px;">
+        <h3>Статус:</h3>
+        <p id="status-text">Ожидание...</p>
+        <div class="progress-bar-background">
+            <div id="progress-bar" class="progress-bar-foreground"></div>
         </div>
+        <a href="#" id="download-link" class="btn btn-success" style="display:none; margin-top: 10px;">Скачать результат</a>
     </div>
 
-    <form id="upload-form" method="POST" enctype="multipart/form-data">
-        <div class="form-group">
-            <label for="saved_template">1. Выберите сохраненный шаблон</label>
-            <select name="saved_template" id="saved_template">
-                <option value="">-- Ручная загрузка --</option>
-                {% for tpl in saved_templates %}
-                    <option value="{{ tpl.id }}">{{ tpl.template_name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="source_file">2. Загрузите исходный файл с данными (.xlsx,.xlsm)</label>
-            <input type="file" name="source_file" id="source_file" accept=".xlsx,.xlsm" required>
-        </div>
-
-        <div id="manual-template-container">
-            <div class="form-group">
-                <label for="template_file">3. Загрузите файл-шаблон (.xlsx,.xlsm)</label>
-                <input type="file" name="template_file" id="template_file" accept=".xlsx,.xlsm">
-            </div>
-        </div>
-
-        <hr>
-
-        <div class="form-group">
-             <label for="source_range_start">4. Укажите начальную ячейку в ИСХОДНОМ файле (указывайте первую ячейку таблицы)</label>
-             <input type="text" name="source_range_start" id="source_range_start" placeholder="Например, A1" required>
-        </div>
-
-        <div class="form-group" id="template-range-container">
-             <label for="template_range_start">5. Укажите начальную ячейку в файле-ШАБЛОНЕ (указывайте первую ячейку таблицы)</label>
-             <input type="text" id="template_range_start" name="template_range_start" placeholder="Например, C5">
-        </div>
-
-        <hr>
-
-        <div class="form-group">
-            <label>6. Добавьте частные правила (необязательно, высший приоритет)</label>
-            <div id="rules-container"></div>
-            <button type="button" class="btn btn-secondary">+ Добавить правило</button>
-        </div>
-
-        <hr>
-
-        <div class="form-group">
-            <label>7. Дополнительные функции (пост-обработка)</label>
-            <select name="post_processing_function" id="post_processing_function">
-                <option value="none">-- Без функции --</option>
-                <option value="coords_to_address">Заполнить 'Адрес' по 'Широте' и 'Долготе'</option>
-                <option value="address_to_coords">Заполнить 'Широту' и 'Долготу' по 'Адресу'</option>
-            </select>
-        </div>
-
-        <hr>
-
-        <button type="submit" class="btn btn-primary">Обработать и скачать</button>
-    </form>
 </div>
 {% endblock %}

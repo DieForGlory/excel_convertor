@@ -10,12 +10,13 @@ from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 from thefuzz import fuzz
 from dadata import Dadata
-import io  # Добавлено для работы с файлами в памяти
-
+import io
+import value_dictionary_handler
 import dictionary_matcher
 
 # --- 1. Конфигурация приложения ---
 TEMPLATES_DB_FOLDER = 'templates_db'
+TEMPLATE_EXCEL_FOLDER = 'template_excel_files'
 ALLOWED_EXTENSIONS = {'xlsx', 'xlsm'}
 
 # --- НОВАЯ КОНФИГУРАЦИЯ DADATA ---
@@ -25,12 +26,12 @@ DADATA_SECRET_KEY = "ВАШ_СЕКРЕТНЫЙ_КЛЮЧ"
 app = Flask(__name__)
 app.config.from_mapping(
     TEMPLATES_DB_FOLDER=TEMPLATES_DB_FOLDER,
+    TEMPLATE_EXCEL_FOLDER=TEMPLATE_EXCEL_FOLDER,
     SECRET_KEY='your-super-secret-key-change-it-for-production'
 )
 
-# --- УДАЛЕНО: Создание папок 'uploads' и 'processed'
-
 os.makedirs(TEMPLATES_DB_FOLDER, exist_ok=True)
+os.makedirs(TEMPLATE_EXCEL_FOLDER, exist_ok=True)
 
 # --- 2. Глобальное хранилище статусов задач ---
 task_statuses = {}
@@ -52,6 +53,55 @@ def get_col_from_cell(cell_coord):
     match = re.match(r"([A-Z]+)", cell_coord.upper())
     return match.group(1) if match else None
 
+@app.route('/value-dictionary')
+def value_dictionary_ui():
+    """Отображает страницу управления словарем значений."""
+    rules = value_dictionary_handler.load_dictionary()
+    return render_template('value_dictionary.html', rules=rules)
+
+@app.route('/value-dictionary/add', methods=['POST'])
+def add_to_value_dictionary():
+    """Добавляет или обновляет правило в словаре значений."""
+    canonical_word = request.form.get('canonical_word')
+    find_words = request.form.get('find_words')
+    if canonical_word and find_words:
+        value_dictionary_handler.add_entry(canonical_word, find_words)
+    return redirect(url_for('value_dictionary_ui'))
+
+@app.route('/value-dictionary/delete', methods=['POST'])
+def delete_from_value_dictionary():
+    """Удаляет правило из словаря значений."""
+    canonical_word = request.form.get('canonical_word')
+    if canonical_word:
+        value_dictionary_handler.delete_entry(canonical_word)
+    return redirect(url_for('value_dictionary_ui'))
+
+
+def _apply_value_dictionary(worksheet, task_id):
+    """Применяет правила из словаря значений ко всем ячейкам листа."""
+    # Получаем эффективную карту замен вида {'найти': 'заменить'}
+    reverse_rules_map = value_dictionary_handler.get_reverse_lookup_map()
+    if not reverse_rules_map:
+        print("--> Словарь значений пуст, замена не требуется.")
+        return
+
+    task_statuses[task_id]['status'] = 'Выполняю замену по словарю значений...'
+    print("--> Начата замена по словарю значений...")
+    replacements_count = 0
+
+    # Проходим по всем ячейкам на листе
+    for row in worksheet.iter_rows():
+        for cell in row:
+            # Работаем только с ячейками, где есть строковые значения
+            if cell.value and isinstance(cell.value, str):
+                # Ищем точное совпадение в нашей карте
+                replacement = reverse_rules_map.get(cell.value)
+                if replacement is not None:
+                    cell.value = replacement
+                    replacements_count += 1
+
+    print(f"--> Замена по словарю значений завершена. Сделано замен: {replacements_count}")
+    task_statuses[task_id]['status'] = f'Замена по словарю завершена ({replacements_count} замен)'
 
 def find_column_indices(worksheet, start_row, headers_to_find):
     indices = {}
@@ -123,7 +173,6 @@ def apply_post_processing(task_id, workbook, start_row, function_name):
 
 
 def _apply_manual_rules(source_ws, template_ws, rules, s_start_row, t_start_row, used_source_cols, used_template_cols):
-    """Применяет правила, заданные вручную (частные и из шаблона)."""
     s_end_row = source_ws.max_row
     for rule in rules:
         s_col_letter = rule.get('s_col') or get_col_from_cell(rule.get('source_cell'))
@@ -152,7 +201,6 @@ def _apply_manual_rules(source_ws, template_ws, rules, s_start_row, t_start_row,
 
 
 def _apply_dictionary_matching(source_ws, template_ws, s_start_row, t_start_row, used_source_cols, used_template_cols):
-    """Сопоставляет столбцы на основе словаря синонимов."""
     reverse_dictionary = dictionary_matcher.get_reverse_dictionary()
     s_headers = {c.column: normalize_header(c.value) for c in source_ws[s_start_row] if c.value}
     t_headers = {c.column: normalize_header(c.value) for c in template_ws[t_start_row] if c.value}
@@ -185,7 +233,6 @@ def _apply_dictionary_matching(source_ws, template_ws, s_start_row, t_start_row,
 
 def _apply_auto_matching(source_ws, template_ws, s_start_row, t_start_row, used_source_cols, used_template_cols,
                          task_id):
-    """Автоматически сопоставляет столбцы по схожести названий."""
     s_headers = {c.column: normalize_header(c.value) for c in source_ws[s_start_row] if c.value}
     t_headers = {c.column: normalize_header(c.value) for c in template_ws[t_start_row] if c.value}
     s_end_row = source_ws.max_row
@@ -219,68 +266,24 @@ def _apply_auto_matching(source_ws, template_ws, s_start_row, t_start_row, used_
             task_statuses[task_id]['status'] = f'Автоматическое копирование: строка {i + 1}'
 
 
-@app.route('/templates/edit/<template_id>', methods=['GET', 'POST'])
-def edit_template(template_id):
-    print(f"--- ВХОД В ФУНКЦИЮ edit_template ---")
-    print(f"Метод запроса: {request.method}")
-    print(f"ID шаблона из URL: '{template_id}'")
-
-    json_path = os.path.join(app.config['TEMPLATES_DB_FOLDER'], f"{template_id}.json")
-    if not os.path.exists(json_path):
-        print(f"!!! ШАБЛОН НЕ НАЙДЕН по пути: '{json_path}'")
-        flash("Шаблон не найден.", "error")
-        return redirect(url_for('templates_list'))
-
-    if request.method == 'POST':
-        print(f"--> Зашли в блок POST для ID: '{template_id}'")
-        try:
-            with open(json_path, 'r', encoding='utf-8') as f:
-                template_data = json.load(f)
-
-            template_data['template_name'] = request.form.get('template_name')
-            template_data['header_start_cell'] = request.form.get('header_start_cell').upper()
-
-            rules = []
-            source_cells = request.form.getlist('source_cell')
-            template_cols = request.form.getlist('template_col')
-            for i in range(len(source_cells)):
-                if source_cells[i] and template_cols[i]:
-                    rules.append({
-                        "source_cell": source_cells[i].upper(),
-                        "template_col": template_cols[i].upper()
-                    })
-            template_data['rules'] = rules
-
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(template_data, f, ensure_ascii=False, indent=4)
-
-            print(f"--> POST-запрос успешен. Перенаправляем на templates_list.")
-            flash(f"Шаблон '{template_data['template_name']}' успешно обновлен!", "success")
-            return redirect(url_for('templates_list'))
-        except Exception as e:
-            print(f"!!! ОШИБКА в блоке POST: {e}")
-            flash(f"Произошла ошибка при обновлении: {e}", "error")
-            return redirect(url_for('edit_template', template_id=template_id))
-
-    print(f"--> Зашли в блок GET. Готовим страницу для ID: '{template_id}'")
-    with open(json_path, 'r', encoding='utf-8') as f:
-        template_data = json.load(f)
-
-    return render_template('edit_template.html', template=template_data, template_id=template_id)
-
-
 # --- 4. Основная функция обработки (ОБНОВЛЕНА) ---
 def process_excel_hybrid(task_id, source_file_obj, template_file_obj, ranges, template_rules, private_rules,
-                         post_function):
+                         post_function, original_template_filename):
     """
     Обрабатывает файлы Excel, используя потоки в памяти.
     """
     try:
-        task_statuses[task_id] = {'progress': 5, 'status': 'Подготовка...'}
-        # ЗАМЕНА: Загрузка из потоков в памяти
+        task_statuses[task_id] = {
+            'progress': 5,
+            'status': 'Подготовка...',
+            'template_filename': original_template_filename
+        }
         source_wb = load_workbook(filename=source_file_obj)
         source_ws = source_wb.active
-        template_wb = load_workbook(filename=template_file_obj)
+
+        # <-- ИЗМЕНЕНО: Проверяем, является ли шаблон .xlsm, и используем флаг keep_vba=True -->
+        is_macro_enabled = original_template_filename.lower().endswith('.xlsm')
+        template_wb = load_workbook(filename=template_file_obj, keep_vba=is_macro_enabled)
         template_ws = template_wb.active
 
         s_start_row, t_start_row = ranges['s_start_row'], ranges['t_start_row']
@@ -298,6 +301,7 @@ def process_excel_hybrid(task_id, source_file_obj, template_file_obj, ranges, te
         task_statuses[task_id]['status'] = 'Ищу автоматические совпадения...'
         _apply_auto_matching(source_ws, template_ws, s_start_row, t_start_row, used_source_cols, used_template_cols,
                              task_id)
+        _apply_value_dictionary(template_ws, task_id)
         task_statuses[task_id]['status'] = 'Запускаю пост-обработку...'
         apply_post_processing(task_id, template_wb, t_start_row, post_function)
 
@@ -313,7 +317,7 @@ def process_excel_hybrid(task_id, source_file_obj, template_file_obj, ranges, te
         task_statuses[task_id].update({'progress': 100, 'status': f"Ошибка: {e}", 'result_file': None})
 
 
-# --- Роуты Flask с изменениями ---
+# --- Роуты Flask (без изменений) ---
 
 @app.route('/templates')
 def templates_list():
@@ -341,19 +345,28 @@ def create_template():
         template_name = request.form.get('template_name')
         header_start_cell = request.form.get('header_start_cell').upper()
         excel_file = request.files.get('excel_file')
-        if not (template_name and header_start_cell):
-            flash("Ошибка: Название и начальная ячейка должны быть заполнены.", "error");
+        if not (template_name and header_start_cell and excel_file and excel_file.filename):
+            flash("Ошибка: Название, начальная ячейка и Excel-файл шаблона должны быть заполнены.", "error");
             return redirect(url_for('new_template_form'))
 
-        # УДАЛЕНО: сохранение файла шаблона на диск
-        template_id = str(uuid.uuid4());
+        template_id = str(uuid.uuid4())
+        _, file_extension = os.path.splitext(excel_file.filename)
+        saved_excel_filename = f"{template_id}{file_extension}"
+        excel_file.save(os.path.join(app.config['TEMPLATE_EXCEL_FOLDER'], saved_excel_filename))
+
         rules = []
         source_cells, template_cols = request.form.getlist('source_cell'), request.form.getlist('template_col')
         for i in range(len(source_cells)):
             if source_cells[i] and template_cols[i]: rules.append(
                 {"source_cell": source_cells[i].upper(), "template_col": template_cols[i].upper()})
-        template_data = {"template_name": template_name, "excel_file": excel_file.filename,
-                         "header_start_cell": header_start_cell, "rules": rules}
+
+        template_data = {
+            "template_name": template_name,
+            "excel_file": saved_excel_filename,
+            "original_filename": excel_file.filename,
+            "header_start_cell": header_start_cell,
+            "rules": rules
+        }
         with open(os.path.join(app.config['TEMPLATES_DB_FOLDER'], f"{template_id}.json"), 'w', encoding='utf-8') as f:
             json.dump(template_data, f, ensure_ascii=False, indent=4)
         flash(f"Шаблон '{template_name}' успешно создан!", "success");
@@ -363,6 +376,103 @@ def create_template():
         return redirect(url_for('new_template_form'))
 
 
+@app.route('/templates/edit/<template_id>', methods=['GET', 'POST'])
+def edit_template(template_id):
+    print(f"--- ВХОД В ФУНКЦИЮ edit_template ---")
+    print(f"Метод запроса: {request.method}")
+    print(f"ID шаблона из URL: '{template_id}'")
+
+    json_path = os.path.join(app.config['TEMPLATES_DB_FOLDER'], f"{template_id}.json")
+    if not os.path.exists(json_path):
+        print(f"!!! ШАБЛОН НЕ НАЙДЕН по пути: '{json_path}'")
+        flash("Шаблон не найден.", "error")
+        return redirect(url_for('templates_list'))
+
+    if request.method == 'POST':
+        print(f"--> Зашли в блок POST для ID: '{template_id}'")
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                template_data = json.load(f)
+
+            # 1. Обновляем текстовые поля
+            template_data['template_name'] = request.form.get('template_name')
+            template_data['header_start_cell'] = request.form.get('header_start_cell').upper()
+
+            # --- НОВЫЙ БЛОК: ОБРАБОТКА ЗАМЕНЫ ФАЙЛА ---
+            new_excel_file = request.files.get('excel_file')
+            if new_excel_file and new_excel_file.filename:
+                print(f"--> Обнаружен новый файл для загрузки: '{new_excel_file.filename}'")
+                if allowed_file(new_excel_file.filename):
+                    # Обновляем имя файла в JSON.
+                    # Примечание: сам файл физически не сохраняется,
+                    # система запоминает только его имя, как и при создании.
+                    template_data['excel_file'] = secure_filename(new_excel_file.filename)
+                    print(f"--> Имя файла шаблона '{template_id}' будет заменено на '{template_data['excel_file']}'")
+                else:
+                    flash("Ошибка: Загруженный файл имеет недопустимый формат. Разрешены только .xlsx и .xlsm.", "error")
+                    return redirect(url_for('edit_template', template_id=template_id))
+            else:
+                print("--> Новый файл не был загружен, имя файла останется прежним.")
+            # --- КОНЕЦ НОВОГО БЛОКА ---
+
+            # 3. Обновляем правила
+            rules = []
+            source_cells = request.form.getlist('source_cell')
+            template_cols = request.form.getlist('template_col')
+            for i in range(len(source_cells)):
+                if source_cells[i] and template_cols[i]:
+                    rules.append({
+                        "source_cell": source_cells[i].upper(),
+                        "template_col": template_cols[i].upper()
+                    })
+            template_data['rules'] = rules
+
+            # 4. Сохраняем все изменения в JSON
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(template_data, f, ensure_ascii=False, indent=4)
+
+            print(f"--> POST-запрос успешен. Перенаправляем на templates_list.")
+            flash(f"Шаблон '{template_data['template_name']}' успешно обновлен!", "success")
+            return redirect(url_for('templates_list'))
+
+        except Exception as e:
+            print(f"!!! ОШИБКА в блоке POST: {e}")
+            flash(f"Произошла ошибка при обновлении: {e}", "error")
+            return redirect(url_for('edit_template', template_id=template_id))
+
+    # Логика для GET-запроса (остается без изменений)
+    print(f"--> Зашли в блок GET. Готовим страницу для ID: '{template_id}'")
+    with open(json_path, 'r', encoding='utf-8') as f:
+        template_data = json.load(f)
+
+    return render_template('edit_template.html', template=template_data, template_id=template_id)
+
+
+@app.route('/templates/download/<template_id>')
+def download_template_file(template_id):
+    json_path = os.path.join(app.config['TEMPLATES_DB_FOLDER'], f"{template_id}.json")
+    if not os.path.exists(json_path):
+        flash("Шаблон не найден.", "error")
+        return redirect(url_for('templates_list'))
+
+    with open(json_path, 'r', encoding='utf-8') as f:
+        template_data = json.load(f)
+
+    excel_filename = template_data.get('excel_file')
+    original_filename = template_data.get('original_filename', 'template.xlsx')
+
+    if not excel_filename or not os.path.exists(os.path.join(app.config['TEMPLATE_EXCEL_FOLDER'], excel_filename)):
+        flash("Для этого шаблона не найден файл Excel.", "error")
+        return redirect(url_for('edit_template', template_id=template_id))
+
+    return send_from_directory(
+        app.config['TEMPLATE_EXCEL_FOLDER'],
+        excel_filename,
+        as_attachment=True,
+        download_name=original_filename
+    )
+
+
 @app.route('/dictionary')
 def dictionary_ui():
     return render_template('dictionary.html', dictionary=dictionary_matcher.load_dictionary())
@@ -370,8 +480,36 @@ def dictionary_ui():
 
 @app.route('/dictionary/add', methods=['POST'])
 def add_to_dictionary():
-    canonical_name, synonyms = request.form.get('canonical_name'), request.form.get('synonyms')
-    if canonical_name and synonyms: dictionary_matcher.add_entry(canonical_name, synonyms)
+    # --- НАЧАЛО БЛОКА ЛОГИРОВАНИЯ ---
+    print("\n--- [СЛОВАРЬ] ПОЛУЧЕН POST-ЗАПРОС НА /dictionary/add ---")
+    try:
+        # Получаем данные из формы
+        canonical_name = request.form.get('canonical_name')
+        synonyms = request.form.get('synonyms', '')
+
+        print(f"  [ЛОГ] Получено основное имя: '{canonical_name}' (Тип: {type(canonical_name)})")
+        print(f"  [ЛОГ] Получены синонимы: '{synonyms}' (Тип: {type(synonyms)})")
+
+        # Проверяем, есть ли основное имя
+        if canonical_name:
+            print("  [ЛОГ] Основное имя присутствует. Вызываю dictionary_matcher.add_entry...")
+            # Вызываем функцию для добавления/обновления записи
+            dictionary_matcher.add_entry(canonical_name, synonyms)
+            print("  [ЛОГ] Вызов dictionary_matcher.add_entry ЗАВЕРШЕН.")
+            flash(f"Запись '{canonical_name}' успешно сохранена.", "success")
+        else:
+            # Если по какой-то причине основное имя не пришло
+            print("  [ЛОГ] ОШИБКА: Основное имя (canonical_name) не было получено из формы.")
+            flash("Ошибка: Не удалось сохранить запись, так как основное имя не было передано.", "error")
+
+    except Exception as e:
+        # Логируем любую непредвиденную ошибку
+        print(f"  [ЛОГ] КРИТИЧЕСКАЯ ОШИБКА в /dictionary/add: {e}")
+        flash(f"Произошла критическая ошибка: {e}", "error")
+
+    print("--- [СЛОВАРЬ] ЗАВЕРШЕНИЕ ЗАПРОСА. Перенаправление на /dictionary ---\n")
+    # --- КОНЕЦ БЛОКА ЛОГИРОВАНИЯ ---
+
     return redirect(url_for('dictionary_ui'))
 
 
@@ -404,35 +542,40 @@ def process_files():
         if not (source_file and source_file.filename and allowed_file(source_file.filename)):
             return jsonify({'error': 'Исходный файл .xlsx или .xlsm должен быть загружен.'}), 400
 
-        # ЧТЕНИЕ ФАЙЛОВ В ПАМЯТЬ
         source_file_obj = io.BytesIO(source_file.read())
 
+        original_template_filename = ''
         template_rules, selected_template_id = [], request.form.get('saved_template')
+
         if selected_template_id:
             json_path = os.path.join(app.config['TEMPLATES_DB_FOLDER'], f"{selected_template_id}.json")
             with open(json_path, 'r', encoding='utf-8') as f:
                 template_info = json.load(f)
-            # УДАЛЕНО: загрузка excel файла с диска
-            # Добавлено: создание пустого объекта openpyxl
-            from openpyxl import Workbook
-            template_wb = Workbook()
-            template_ws = template_wb.active
-            # Это заглушка, так как openpyxl требует объект для работы, но в шаблоне
-            # нам важны только правила, а не сам файл.
-            template_file_obj = io.BytesIO()
-            template_wb.save(template_file_obj)
-            template_file_obj.seek(0)
+
+            excel_filename = template_info.get('excel_file')
+            original_template_filename = template_info.get('original_filename', 'template.xlsx')
+            template_file_path = os.path.join(app.config['TEMPLATE_EXCEL_FOLDER'], excel_filename)
+
+            if excel_filename and os.path.exists(template_file_path):
+                 with open(template_file_path, 'rb') as f:
+                    template_file_obj = io.BytesIO(f.read())
+            else:
+                from openpyxl import Workbook
+                template_wb = Workbook()
+                template_file_obj = io.BytesIO()
+                template_wb.save(template_file_obj)
+                template_file_obj.seek(0)
+
             t_start_cell = template_info['header_start_cell']
             template_rules = template_info.get('rules', [])
         else:
             template_file = request.files.get('template_file')
             if not (template_file and template_file.filename and allowed_file(template_file.filename)):
                 return jsonify({'error': 'Если шаблон не выбран, его нужно загрузить вручную (.xlsx или .xlsm).'}), 400
-            # ЧТЕНИЕ ФАЙЛА В ПАМЯТЬ
+
+            original_template_filename = template_file.filename
             template_file_obj = io.BytesIO(template_file.read())
             t_start_cell = request.form.get('template_range_start').upper()
-
-        # УДАЛЕНО: сохранение файлов на диск
 
         ranges = {
             's_start_row': int(re.search(r'\d+', request.form.get('source_range_start').upper()).group()),
@@ -445,8 +588,9 @@ def process_files():
 
         post_function = request.form.get('post_processing_function', 'none')
         task_id = str(uuid.uuid4())
+
         thread = threading.Thread(target=process_excel_hybrid, args=(
-            task_id, source_file_obj, template_file_obj, ranges, template_rules, private_rules, post_function))
+            task_id, source_file_obj, template_file_obj, ranges, template_rules, private_rules, post_function, original_template_filename))
         thread.start()
         return jsonify({'task_id': task_id})
     except Exception as e:
@@ -457,32 +601,65 @@ def process_files():
 def task_status(task_id):
     status_info = task_statuses.get(task_id, {})
     if status_info.get('result_file'):
-        # Если обработка завершена, возвращаем статус и название файла
-        file_name = f"processed_{task_id}.xlsx"
+        template_filename = status_info.get('template_filename', 'template.xlsx')
+        _, file_extension = os.path.splitext(template_filename)
+        file_name = f"processed_{task_id}{file_extension}"
+
         return jsonify({'status': status_info['status'], 'progress': status_info['progress'], 'result_file': file_name})
     return jsonify(status_info)
 
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    task_id = filename.split('.')[0].replace('processed_', '')
+    task_id_with_ext = filename.replace('processed_', '')
+    task_id, file_extension = os.path.splitext(task_id_with_ext)
+
     status_info = task_statuses.get(task_id)
     if status_info and status_info.get('result_file'):
         file_obj = status_info['result_file']
+
+        mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        if file_extension.lower() == '.xlsm':
+            mimetype = 'application/vnd.ms-excel.sheet.macroEnabled.12'
+
         return send_file(file_obj, as_attachment=True, download_name=filename,
-                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                         mimetype=mimetype)
     return "Файл не найден или обработка еще не завершена.", 404
 
 
 def get_cell_content(cell):
-    """
-    Извлекает содержимое ячейки. Если есть гиперссылка,
-    возвращает строку формата "Значение (URL)".
-    """
     if cell.hyperlink and cell.hyperlink.target:
         return f"{cell.value} ({cell.hyperlink.target})"
     return cell.value
 
+
+@app.route('/templates/delete/<template_id>', methods=['POST'])
+def delete_template(template_id):
+    """Удаляет JSON-файл шаблона по его ID."""
+    try:
+        # Формируем полный путь к файлу шаблона
+        json_path = os.path.join(app.config['TEMPLATES_DB_FOLDER'], f"{secure_filename(template_id)}.json")
+
+        print(f"--> Поступил запрос на удаление шаблона: '{template_id}'")
+        print(f"--> Путь к файлу для удаления: '{json_path}'")
+
+        if os.path.exists(json_path):
+            # Если файл существует, удаляем его
+            os.remove(json_path)
+            flash(f"Шаблон успешно удален.", "success")
+            print(f"--> Файл '{json_path}' успешно удален.")
+        else:
+            # Если файл по какой-то причине не найден
+            flash("Ошибка: Шаблон для удаления не найден.", "error")
+            print(f"!!! ОШИБКА: Файл '{json_path}' для удаления не найден.")
+
+    except Exception as e:
+        # Обработка любых других ошибок
+        flash(f"Произошла ошибка при удалении шаблона: {e}", "error")
+        print(f"!!! КРИТИЧЕСКАЯ ОШИБКА при удалении шаблона '{template_id}': {e}")
+
+    # Возвращаем пользователя на страницу со списком шаблонов
+    return redirect(url_for('templates_list'))
 
 
 if __name__ == '__main__':
