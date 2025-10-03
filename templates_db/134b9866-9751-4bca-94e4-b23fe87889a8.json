@@ -1,0 +1,80 @@
+{
+    "template_name": "Шаблон_Russ_Ира Б",
+    "excel_file": "134b9866-9751-4bca-94e4-b23fe87889a8.xlsx",
+    "original_filename": "PPL_OOH___.xlsx",
+    "header_start_cell": "B11",
+    "rules": [
+        {
+            "source_cell": "B11",
+            "template_col": "B"
+        },
+        {
+            "source_cell": "C11",
+            "template_col": "E"
+        },
+        {
+            "source_cell": "D11",
+            "template_col": "F"
+        },
+        {
+            "source_cell": "E11",
+            "template_col": "G"
+        },
+        {
+            "source_cell": "J11",
+            "template_col": "H"
+        },
+        {
+            "source_cell": "K11",
+            "template_col": "I"
+        },
+        {
+            "source_cell": "AA11",
+            "template_col": "K"
+        },
+        {
+            "source_cell": "AA11",
+            "template_col": "L"
+        },
+        {
+            "source_cell": "N11",
+            "template_col": "M"
+        },
+        {
+            "source_cell": "O11",
+            "template_col": "N"
+        },
+        {
+            "source_cell": "P11",
+            "template_col": "O"
+        },
+        {
+            "source_cell": "Q11",
+            "template_col": "P"
+        },
+        {
+            "source_cell": "X11",
+            "template_col": "U"
+        },
+        {
+            "source_cell": "Z11",
+            "template_col": "Y"
+        },
+        {
+            "source_cell": "AD11",
+            "template_col": "Z"
+        },
+        {
+            "source_cell": "AE11",
+            "template_col": "AA"
+        },
+        {
+            "source_cell": "AF11",
+            "template_col": "AB"
+        },
+        {
+            "source_cell": "G11",
+            "template_col": "C"
+        }
+    ]
+}
