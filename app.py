@@ -403,13 +403,25 @@ def edit_template(template_id):
             if new_excel_file and new_excel_file.filename:
                 print(f"--> Обнаружен новый файл для загрузки: '{new_excel_file.filename}'")
                 if allowed_file(new_excel_file.filename):
-                    # Обновляем имя файла в JSON.
-                    # Примечание: сам файл физически не сохраняется,
-                    # система запоминает только его имя, как и при создании.
-                    template_data['excel_file'] = secure_filename(new_excel_file.filename)
-                    print(f"--> Имя файла шаблона '{template_id}' будет заменено на '{template_data['excel_file']}'")
+                    # 1. Удаляем старый файл, если он существует
+                    old_file_path = os.path.join(app.config['TEMPLATE_EXCEL_FOLDER'], template_data['excel_file'])
+                    if os.path.exists(old_file_path):
+                        os.remove(old_file_path)
+                        print(f"--> Старый файл '{template_data['excel_file']}' удален.")
+
+                    # 2. Генерируем новое уникальное имя и сохраняем файл
+                    _, file_extension = os.path.splitext(new_excel_file.filename)
+                    # Используем тот же ID шаблона для имени файла, чтобы сохранить связь
+                    saved_excel_filename = f"{template_id}{file_extension}"
+                    new_excel_file.save(os.path.join(app.config['TEMPLATE_EXCEL_FOLDER'], saved_excel_filename))
+
+                    # 3. Обновляем информацию в JSON
+                    template_data['excel_file'] = saved_excel_filename
+                    template_data['original_filename'] = secure_filename(new_excel_file.filename)
+                    print(f"--> Новый файл сохранен как '{saved_excel_filename}'")
+
                 else:
-                    flash("Ошибка: Загруженный файл имеет недопустимый формат. Разрешены только .xlsx и .xlsm.", "error")
+                    flash("Ошибка: Загруженный файл имеет недопустимый формат.", "error")
                     return redirect(url_for('edit_template', template_id=template_id))
             else:
                 print("--> Новый файл не был загружен, имя файла останется прежним.")
