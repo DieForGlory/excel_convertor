@@ -46,24 +46,13 @@ def get_reverse_dictionary(data=None):
 
 
 def add_entry(canonical_name, synonyms_str):
-    """
-    Добавляет или ОБНОВЛЯЕТ запись в словаре.
-    При редактировании полностью заменяет старый список синонимов новым.
-    """
+    """Добавляет или обновляет запись в словаре."""
     dictionary = load_dictionary()
-    canonical_name = canonical_name.strip()
-
-    # Разбираем строку с синонимами в множество, чтобы убрать дубликаты и пустые строки
-    new_synonyms = {s.strip() for s in synonyms_str.split('@1!') if s.strip()}
-
-    # --- ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ---
-    # Мы больше не объединяем старый и новый списки.
-    # Мы просто присваиваем новое значение.
-    # Это работает и для создания новой записи, и для полного обновления существующей.
-    dictionary[canonical_name] = sorted(list(new_synonyms))
-
+    # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+    # Разделяем строку по вашему разделителю, а не по запятой
+    synonyms = [s.strip() for s in synonyms_str.split('@1!') if s.strip()]
+    dictionary[canonical_name] = synonyms
     save_dictionary(dictionary)
-    print(f"  [ЛОГ СЛОВАРЯ] Запись '{canonical_name}' сохранена с синонимами: {dictionary[canonical_name]}")
 
 
 def delete_entry(canonical_name):
