@@ -4,85 +4,53 @@
 
 {% block content %}
 <div class="container">
-    <div style="text-align: center; margin-bottom: 2em;">
-        <h1>Редактирование шаблона "{{ template.template_name }}"</h1>
-    </div>
+    <h1>Редактируем шаблон: "{{ template.template_name }}"</h1>
+    <p>Здесь вы можете обновить любые настройки вашего шаблона.</p>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <form action="{{ url_for('edit_template', template_id=template_id) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ url_for('templates.edit', template_id=template_id) }}" method="POST" enctype="multipart/form-data" style="margin-top: 2rem;">
 
         <fieldset>
-            <legend><span class="step-icon">📄</span>Основная информация</legend>
+            <legend><span class="legend-icon">1</span>Основная информация</legend>
             <div class="form-group">
                 <label for="template_name">Название шаблона</label>
                 <input type="text" id="template_name" name="template_name" value="{{ template.template_name }}" required>
             </div>
-             <div class="form-group">
+            <div class="form-group">
                 <label for="header_start_cell">Ячейка с первым заголовком</label>
                 <input type="text" id="header_start_cell" name="header_start_cell" value="{{ template.header_start_cell }}" required>
             </div>
-
             <div class="form-group">
-                <label for="excel_file">Заменить файл шаблона</label>
-                <small style="display: block; color: #6c757d; margin-bottom: 5px;">Текущий файл: {{ template.excel_file | default('не указан', true) }}</small>
+                <label>Текущий файл шаблона:
+                    <a href="{{ url_for('templates.download', template_id=template_id) }}">{{ template.original_filename }}</a>
+                </label>
+                <label for="excel_file" style="margin-top: 0.5rem;">Загрузить новый файл (необязательно, заменит старый)</label>
                 <input type="file" id="excel_file" name="excel_file" accept=".xlsx, .xlsm">
-                <small style="display: block; color: #6c757d;">Выберите новый файл, только если хотите заменить текущий.</small>
             </div>
-
         </fieldset>
-
         <fieldset>
-            <legend><span class="step-icon">⚙️</span>Правила сопоставления</legend>
-            <div id="rules-container">
+            <legend><span class="legend-icon">2</span>Правила сопоставления</legend>
+            <div id="manual-rules-container">
+
                 {% for rule in template.rules %}
-                <div class="rule">
-                    <div class="rule-inputs" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: center;">
-                        <input type="text" name="source_cell" value="{{ rule.source_cell }}" placeholder="Ячейка в исходнике (A1)" required>
-                        <input type="text" name="template_col" value="{{ rule.template_col }}" placeholder="Столбец в шаблоне (C)" required>
+                <div class="rule-row">
+                    <div class="rule-input-group">
+                        <label>Из ячейки</label>
+                        <input type="text" name="source_cell" placeholder="A1" value="{{ rule.source_cell }}" required>
                     </div>
-                    <button type="button" class="btn-remove" onclick="this.parentElement.remove()">-</button>
+                    <div class="rule-arrow">→</div>
+                    <div class="rule-input-group">
+                        <label>В колонку</label>
+                        <input type="text" name="template_col" placeholder="B" value="{{ rule.template_col }}" required>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm remove-rule-btn" style="align-self: center; margin-top: 1rem;">Удалить</button>
                 </div>
                 {% endfor %}
+
             </div>
-            <button type="button" class="btn btn-secondary" onclick="addRule()">+ Добавить правило</button>
+            <button type="button" id="add-manual-rule" class="btn btn-secondary" style="margin-top: 1rem;">+ Добавить правило</button>
         </fieldset>
 
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
-            <button type="submit" class="btn btn-primary">Сохранить изменения</button>
-
-            {% if template.excel_file %}
-                <a href="{{ url_for('download_template_file', template_id=template_id) }}" class="btn btn-success">Скачать файл шаблона</a>
-            {% endif %}
-        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;">Обновить шаблон</button>
     </form>
-
-    <div class="nav-link">
-        <a href="{{ url_for('templates_list') }}">&larr; Вернуться к списку шаблонов</a>
-    </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    function addRule() {
-        const container = document.getElementById('rules-container');
-        const ruleDiv = document.createElement('div');
-        ruleDiv.className = 'rule';
-        ruleDiv.innerHTML = `
-            <div class="rule-inputs" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: center;">
-                <input type="text" name="source_cell" placeholder="Ячейка в исходнике (A1)" required>
-                <input type="text" name="template_col" placeholder="Столбец в шаблоне (C)" required>
-            </div>
-            <button type="button" class="btn-remove" onclick="this.parentElement.remove()">-</button>
-        `;
-        container.appendChild(ruleDiv);
-    }
-</script>
 {% endblock %}

@@ -1,284 +1,326 @@
+/* static/css/styles.css */
+
+/* --- 1. Переменные и Глобальные стили --- */
+:root {
+    --primary-color: #4a90e2;
+    --primary-hover-color: #357ABD;
+    --secondary-color: #f4f7fa;
+    --background-color: #ffffff;
+    --text-color: #333;
+    --border-color: #dbe2e8;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --font-family: 'Montserrat', sans-serif;
+    --border-radius: 8px;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    margin: 2em;
-    background-color: #f4f4f9;
-    color: #333;
+    font-family: var(--font-family);
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+    line-height: 1.6;
 }
 
 .container {
-    max-width: 800px;
-    margin: auto;
-    background: white;
-    padding: 2em;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: var(--background-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
 }
 
-h1 {
-    color: #111;
+h1, h2, h3 {
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+a {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: var(--primary-hover-color);
+}
+
+/* --- 2. Навигация --- */
+.navbar {
+    background: var(--background-color);
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.navbar .logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.navbar .nav-links a {
+    margin-left: 1.5rem;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+/* --- 3. Формы --- */
+fieldset {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    background: #fafcfe;
+}
+
+legend {
+    padding: 0 0.5rem;
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+}
+
+.legend-icon {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: 50%;
     text-align: center;
+    line-height: 30px;
+    margin-right: 0.5rem;
+    font-weight: 700;
 }
 
 .form-group {
-    margin-bottom: 1.5em;
+    margin-bottom: 1.5rem;
 }
 
-label {
+.form-group label {
     display: block;
-    margin-bottom: 0.5em;
-    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
 }
 
-input[type="file"],
-input[type="text"],
-select {
+.form-group input[type="text"],
+.form-group input[type="file"],
+.form-group select {
     width: 100%;
-    box-sizing: border-box;
-    padding: 12px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    font-size: 16px;
+    padding: 0.8rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
 
-input[type="file"] {
-    padding: 8px;
-}
-
-input:focus,
-select:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+.form-group input:focus, .form-group select:focus {
     outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
 }
 
-.rule {
+.checkbox-group {
     display: flex;
-    gap: 1em;
     align-items: center;
-    padding: 1em;
-    border: 1px dashed #ddd;
-    border-radius: 6px;
-    margin-bottom: 1em;
+}
+.checkbox-group input {
+    margin-right: 0.5rem;
 }
 
-.rule-inputs {
-    flex-grow: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1em;
-}
 
-.range-inputs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1em;
-}
-
+/* --- 4. Кнопки --- */
 .btn {
-    font-size: 16px;
-    font-weight: 600;
-    padding: 12px 18px;
+    display: inline-block;
+    padding: 0.8rem 1.5rem;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
+    text-align: center;
+    transition: background-color 0.3s, transform 0.2s;
 }
 
-.btn:active {
-    transform: translateY(1px);
+.btn:hover {
+    transform: translateY(-2px);
 }
 
 .btn-primary {
-    background-color: #007bff;
+    background-color: var(--primary-color);
     color: white;
-    width: 100%;
 }
-
 .btn-primary:hover {
-    background-color: #0056b3;
+    background-color: var(--primary-hover-color);
 }
 
 .btn-secondary {
-    background-color: #6c757d;
+    /* --- ИЗМЕНЕНИЕ: Новый, более приятный цвет --- */
+    background-color: #5a67d8; /* Индиго */
     color: white;
 }
-
 .btn-secondary:hover {
-    background-color: #5a6268;
+    background-color: #434190;
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    color: white;
 }
 
 .btn-danger {
-    background-color: #dc3545;
+    background-color: var(--error-color);
     color: white;
 }
 
-.btn-danger:hover {
-    background-color: #c82333;
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
 }
 
-#progress-container {
-    margin-bottom: 1.5em;
-}
 
-#progress-bar-wrapper {
-    background-color: #e9ecef;
-    border-radius: 6px;
-    padding: 4px;
-}
-
-#progress-bar {
-    width: 0%;
-    height: 24px;
-    background-color: #007bff;
-    border-radius: 4px;
-    text-align: center;
-    color: white;
-    line-height: 24px;
-    font-weight: bold;
-    transition: width 0.4s ease;
-}
-
-#progress-status {
-    text-align: center;
-    margin-bottom: 0.5em;
-    color: #555;
-}
-
-hr {
-    margin: 2em 0;
-    border: none;
-    border-top: 1px solid #eee;
-}
-
-.nav-link {
-    text-align: center;
-    margin-top: 2em;
-}
-/* --- Стили для хедера --- */
-.main-header {
-    background-color: #fff;
-    padding: 1em 0;
-    border-bottom: 1px solid #eee;
-    margin-bottom: 2em;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.header-container {
+/* --- 5. Динамические правила --- */
+#manual-rules-container .rule-row {
     display: flex;
-    justify-content: space-between;
+    gap: 1.5rem; /* Увеличили отступ */
     align-items: center;
+    margin-bottom: 1.5rem;
+    background-color: #f8f9fa; /* Легкий фон */
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
 }
 
-.logo {
-    font-size: 1.5em;
-    font-weight: bold;
-    color: #333;
-    text-decoration: none;
-}
-
-.main-nav a {
-    margin-left: 1.5em;
-    text-decoration: none;
-    color: #555;
-    font-weight: 600;
-    transition: color 0.2s;
-}
-
-.main-nav a:hover {
-    color: #007bff;
-}
-
-/* Убираем лишний отступ у основного контейнера */
-.main-content .container {
-    box-shadow: none;
-    padding: 0;
-}
-/* --- Стили для страницы словаря --- */
-.dictionary-layout {
-    display: flex;
-    gap: 2em;
-    align-items: flex-start;
-}
-
-.add-entry-card {
+.rule-input-group {
     flex: 1;
-    background-color: #f8f9fa;
-    padding: 1.5em;
-    border-radius: 8px;
-    border: 1px solid #e9ecef;
-    position: sticky; /* Делаем форму "липкой" при прокрутке */
-    top: 2em;
-}
-
-.dictionary-list {
-    flex: 2;
     display: flex;
     flex-direction: column;
-    gap: 1em;
 }
 
-.dictionary-entry-card {
-    background: #fff;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 1.5em;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+.rule-input-group label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    font-weight: 600;
 }
 
-.entry-header {
+.rule-input-group input {
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+}
+
+.rule-arrow {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    font-weight: 600;
+    padding-top: 1.2rem; /* Для выравнивания с полями */
+}
+
+/* --- 6. Статус и прогресс-бар --- */
+#progress-container {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.progress-bar-background {
+    width: 100%;
+    background-color: var(--secondary-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.progress-bar-foreground {
+    height: 20px;
+    width: 0%;
+    background-color: var(--success-color);
+    border-radius: var(--border-radius);
+    transition: width 0.4s ease;
+    text-align: center;
+    color: white;
+    font-weight: 600;
+}
+
+/* --- 7. Уведомления и ошибки --- */
+.flash-messages {
+    list-style-type: none;
+    padding: 0;
+    margin-bottom: 1rem;
+}
+.flash-messages li {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius);
+}
+.flash-messages .success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+.flash-messages .error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.error-container {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius);
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* --- 8. Списки и карточки (для шаблонов/словарей) --- */
+.item-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+.item-card {
+    background: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1em;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 0.8em;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.canonical-name {
-    font-size: 1.3em;
-    font-weight: 600;
-    color: #0056b3;
+.item-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
-.synonym-tags {
+.item-card-content h3 {
+    margin: 0 0 0.5rem 0;
+}
+
+.item-card-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5em;
-}
-
-.synonym-tag {
-    background: #e9ecef;
-    color: #495057;
-    border-radius: 4px;
-    padding: 0.3em 0.7em;
-    font-family: monospace;
-    font-size: 0.9em;
-}
-
-.delete-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.5em;
-    color: #dc3545;
-    opacity: 0.5;
-    transition: opacity 0.2s;
-}
-
-.delete-btn:hover {
-    opacity: 1;
-}
-.edit-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.5em;
-    color: #007bff;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-    vertical-align: middle;
-}
-.edit-btn:hover {
-    opacity: 1;
+    gap: 0.5rem;
 }

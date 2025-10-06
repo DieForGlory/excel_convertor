@@ -4,52 +4,36 @@
 
 {% block content %}
 <div class="container">
-    <div style="text-align: center; margin-bottom: 2em;">
-        <h1>Создание нового шаблона</h1>
-        <p class="instruction-text">Настройте один раз, чтобы потом обрабатывать файлы в один клик.</p>
-    </div>
+    <h1>Создаем новый шаблон</h1>
+    <p>Заполните эти поля, чтобы сохранить настройки для будущего использования.</p>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <form action="/templates/create" method="POST" enctype="multipart/form-data">
+    <form action="{{ url_for('templates.create') }}" method="POST" enctype="multipart/form-data" style="margin-top: 2rem;">
 
         <fieldset>
-            <legend><span class="step-icon">📄</span>Шаг 1: Основная информация</legend>
+            <legend><span class="legend-icon">1</span>Основная информация</legend>
             <div class="form-group">
-                <label for="template_name">Название шаблона</label>
-                <input type="text" id="template_name" name="template_name" placeholder="Например, 'Ежемесячный отчет P&L'" required>
+                <label for="template_name">Придумайте имя для шаблона</label>
+                <input type="text" id="template_name" name="template_name" placeholder="Например, 'Ежемесячный отчет для бухгалтерии'" required>
             </div>
             <div class="form-group">
-                <label for="excel_file">Загрузите Excel-файл, который будет шаблоном</label>
-                <input type="file" id="excel_file" name="excel_file" accept=".xlsx,.xlsm" required>
+                <label for="excel_file">Загрузите Excel-файл, который станет основой шаблона</label>
+                <input type="file" id="excel_file" name="excel_file" required accept=".xlsx, .xlsm">
             </div>
              <div class="form-group">
-                <label for="header_start_cell">Ячейка с первым заголовком в таблице шаблона</label>
-                <input type="text" id="header_start_cell" name="header_start_cell" placeholder="Например, 'B4'" required>
+                <label for="header_start_cell">Укажите ячейку с первым заголовком в этом файле</label>
+                <input type="text" id="header_start_cell" name="header_start_cell" placeholder="Например, A1" required>
             </div>
         </fieldset>
 
         <fieldset>
-            <legend><span class="step-icon">🔗</span>Шаг 2: Правила сопоставления (необязательно)</legend>
-            <div id="rules-container">
+            <legend><span class="legend-icon">2</span>Правила сопоставления (если нужно)</legend>
+            <p>Задайте строгие правила для колонок. Например, колонка "Цена товара" из исходного файла всегда должна попадать в колонку "Price" в шаблоне.</p>
+            <div id="manual-rules-container" style="margin-top: 1rem;">
                 </div>
-            <button type="button" class="btn btn-secondary">+ Добавить правило</button>
+            <button type="button" id="add-manual-rule" class="btn btn-secondary">+ Добавить правило</button>
         </fieldset>
 
-        <button type="submit" class="btn btn-primary">Сохранить шаблон</button>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;">Сохранить шаблон</button>
     </form>
-
-    <div class="nav-link">
-        <a href="/templates">&larr; Вернуться к списку шаблонов</a>
-    </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
 {% endblock %}

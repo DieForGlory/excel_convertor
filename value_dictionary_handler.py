@@ -22,21 +22,13 @@ def save_dictionary(data):
 
 
 def add_entry(canonical_word, find_words_str):
-    """
-    Добавляет или обновляет запись.
-     canonical_word: Слово, на которое нужно заменять.
-    find_words_str: Строка со словами для замены, разделенными '@1!'.
-    """
+    """Добавляет или обновляет правило в словаре."""
     dictionary = load_dictionary()
-    canonical_word = canonical_word.strip()
-
-    # Разбираем строку в множество, чтобы удалить дубликаты и пустые строки
-    new_find_words = {s.strip() for s in find_words_str.split('@1!') if s.strip()}
-
-    # Просто перезаписываем старый список слов новым (работает и для создания, и для обновления)
-    if canonical_word:
-        dictionary[canonical_word] = sorted(list(new_find_words))
-        save_dictionary(dictionary)
+    # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+    # Разделяем строку по вашему разделителю
+    find_words = [s.strip() for s in find_words_str.split('@1!') if s.strip()]
+    dictionary[canonical_word] = find_words
+    save_dictionary(dictionary)
 
 
 def delete_entry(canonical_word):

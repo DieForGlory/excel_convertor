@@ -1,33 +1,38 @@
 {% extends "base.html" %}
 
-{% block title %}Главная{% endblock %}
+{% block title %}Главная - Просто Парсер{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h1>Конвертер Excel файлов</h1>
+    <h1>Добро пожаловать в Просто Парсер!</h1>
+    <p>Давайте превратим ваши данные в нужный формат всего за несколько шагов.</p>
 
-    <form id="process-form" action="/process" method="POST" enctype="multipart/form-data">
+    <form id="process-form" action="{{ url_for('main.process_files') }}" method="POST" enctype="multipart/form-data">
 
-        <div id="error-messages" class="error-container" style="display:none; color: #d9534f; background-color: #f2dede; border: 1px solid #ebccd1; padding: 15px; border-radius: 4px; margin-bottom: 20px;"></div>
+        <div id="error-messages" class="error-container" style="display:none;"></div>
 
         <fieldset>
-            <legend><span class="step-icon">1</span> Исходный файл</legend>
+            <legend><span class="legend-icon">1</span>Ваш исходный файл</legend>
             <div class="form-group">
-                <label for="source_file">Файл (.xlsx, .xlsm)</label>
+                <label for="source_file">Выберите файл с данными, которые нужно обработать (.xlsx, .xlsm)</label>
                 <input type="file" id="source_file" name="source_file" required accept=".xlsx, .xlsm">
             </div>
             <div class="form-group">
-                <label for="source_range_start">Ячейка с первым заголовком</label>
+                <label for="source_range_start">Укажите ячейку, с которой начинаются заголовки (например, A5)</label>
                 <input type="text" id="source_range_start" name="source_range_start" placeholder="Например, A5" required>
+            </div>
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="visible_rows_only" name="visible_rows_only" value="true">
+                <label for="visible_rows_only">Обрабатывать только видимые (не скрытые фильтром) строки</label>
             </div>
         </fieldset>
 
         <fieldset>
-            <legend><span class="step-icon">2</span> Файл-шаблон</legend>
+            <legend><span class="legend-icon">2</span>Файл-шаблон</legend>
             <div class="form-group">
-                <label for="saved_template">Использовать сохраненный шаблон</label>
+                <label for="saved_template">Хотите использовать ранее сохраненный шаблон?</label>
                 <select id="saved_template" name="saved_template">
-                    <option value="">-- Не использовать (загрузить вручную) --</option>
+                    <option value="">-- Нет, я загружу новый --</option>
                     {% for tpl in saved_templates %}
                     <option value="{{ tpl.id }}">{{ tpl.template_name }}</option>
                     {% endfor %}
@@ -35,45 +40,46 @@
             </div>
             <div id="new-template-fields">
                 <div class="form-group">
-                    <label for="template_file">Загрузить файл (.xlsx, .xlsm)</label>
+                    <label for="template_file">Загрузите файл-шаблон, куда будут перенесены данные</label>
                     <input type="file" id="template_file" name="template_file" accept=".xlsx, .xlsm">
                 </div>
                 <div class="form-group">
-                    <label for="template_range_start">Ячейка с первым заголовком</label>
+                    <label for="template_range_start">Укажите ячейку с первым заголовком в шаблоне</label>
                     <input type="text" id="template_range_start" name="template_range_start" placeholder="Например, B1">
                 </div>
             </div>
         </fieldset>
 
         <fieldset>
-            <legend><span class="step-icon">3</span> Частные правила (опционально)</legend>
-            <div id="manual-rules-container">
+            <legend><span class="legend-icon">3</span>Ручные правила (если нужно)</legend>
+            <p>Здесь можно указать точные соответствия колонок, которые система должна использовать в первую очередь.</p>
+            <div id="manual-rules-container" style="margin-top:1rem;">
                 </div>
             <button type="button" id="add-manual-rule" class="btn btn-secondary">+ Добавить правило</button>
         </fieldset>
 
         <fieldset>
-            <legend><span class="step-icon">4</span> Пост-обработка (Dadata)</legend>
-            <div class="form-group">
-                <label for="post_processing_function">Функция</label>
+            <legend><span class="legend-icon">4</span>Финальная обработка</legend>
+             <div class="form-group">
+                <label for="post_processing_function">Нужна ли дополнительная обработка адресов и координат?</label>
                 <select id="post_processing_function" name="post_processing_function">
-                    <option value="none">Без обработки</option>
-                    <option value="coords_to_address">Координаты → Адрес</option>
-                    <option value="address_to_coords">Адрес → Координаты</option>
+                    <option value="none">Нет, спасибо</option>
+                    <option value="coords_to_address">Преобразовать Координаты → в Адрес</option>
+                    <option value="address_to_coords">Преобразовать Адрес → в Координаты</option>
                 </select>
             </div>
         </fieldset>
 
-        <button type="submit" class="btn btn-primary">Начать обработку</button>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1.2rem;">Начать обработку!</button>
     </form>
 
-    <div id="progress-container" style="display:none; margin-top: 20px;">
-        <h3>Статус:</h3>
-        <p id="status-text">Ожидание...</p>
+    <div id="progress-container" style="display:none;">
+        <h2>Процесс пошел!</h2>
+        <p id="status-text">Готовлюсь к работе...</p>
         <div class="progress-bar-background">
             <div id="progress-bar" class="progress-bar-foreground"></div>
         </div>
-        <a href="#" id="download-link" class="btn btn-success" style="display:none; margin-top: 10px;">Скачать результат</a>
+        <a href="#" id="download-link" class="btn btn-success" style="display:none; margin-top: 10px;">Скачать готовый файл</a>
     </div>
 
 </div>
