@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Редактирование шаблона{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Редактируем шаблон: "{{ template.template_name }}"</h1>
+    <p>Здесь вы можете обновить любые настройки вашего шаблона.</p>
+
+    <form action="{{ url_for('templates.edit', template_id=template_id) }}" method="POST" enctype="multipart/form-data" style="margin-top: 2rem;">
+
+        <fieldset>
+            <legend><span class="legend-icon">1</span>Основная информация</legend>
+            <div class="form-group">
+                <label for="template_name">Название шаблона</label>
+                <input type="text" id="template_name" name="template_name" value="{{ template.template_name }}" required>
+            </div>
+            <div class="form-group">
+                <label for="header_start_cell">Ячейка с первым заголовком</label>
+                <input type="text" id="header_start_cell" name="header_start_cell" value="{{ template.header_start_cell }}" required>
+            </div>
+            <div class="form-group">
+                <label>Текущий файл шаблона:
+                    <a href="{{ url_for('templates.download', template_id=template_id) }}">{{ template.original_filename }}</a>
+                </label>
+                <label for="excel_file" style="margin-top: 0.5rem;">Загрузить новый файл (необязательно, заменит старый)</label>
+                <input type="file" id="excel_file" name="excel_file" accept=".xlsx, .xlsm">
+            </div>
+        </fieldset>
+        <fieldset>
+            <legend><span class="legend-icon">2</span>Правила сопоставления</legend>
+            <div id="manual-rules-container">
+
+                {% for rule in template.rules %}
+                <div class="rule-row">
+                    <div class="rule-input-group">
+                        <label>Из ячейки</label>
+                        <input type="text" name="source_cell" placeholder="A1" value="{{ rule.source_cell }}" required>
+                    </div>
+                    <div class="rule-arrow">→</div>
+                    <div class="rule-input-group">
+                        <label>В колонку</label>
+                        <input type="text" name="template_col" placeholder="B" value="{{ rule.template_col }}" required>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm remove-rule-btn" style="align-self: center; margin-top: 1rem;">Удалить</button>
+                </div>
+                {% endfor %}
+
+            </div>
+            <button type="button" id="add-manual-rule" class="btn btn-secondary" style="margin-top: 1rem;">+ Добавить правило</button>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;">Обновить шаблон</button>
+    </form>
+</div>
+{% endblock %}

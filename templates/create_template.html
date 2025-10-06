@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Создание нового шаблона{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Создаем новый шаблон</h1>
+    <p>Заполните эти поля, чтобы сохранить настройки для будущего использования.</p>
+
+    <form action="{{ url_for('templates.create') }}" method="POST" enctype="multipart/form-data" style="margin-top: 2rem;">
+
+        <fieldset>
+            <legend><span class="legend-icon">1</span>Основная информация</legend>
+            <div class="form-group">
+                <label for="template_name">Придумайте имя для шаблона</label>
+                <input type="text" id="template_name" name="template_name" placeholder="Например, 'Ежемесячный отчет для бухгалтерии'" required>
+            </div>
+            <div class="form-group">
+                <label for="excel_file">Загрузите Excel-файл, который станет основой шаблона</label>
+                <input type="file" id="excel_file" name="excel_file" required accept=".xlsx, .xlsm">
+            </div>
+             <div class="form-group">
+                <label for="header_start_cell">Укажите ячейку с первым заголовком в этом файле</label>
+                <input type="text" id="header_start_cell" name="header_start_cell" placeholder="Например, A1" required>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend><span class="legend-icon">2</span>Правила сопоставления (если нужно)</legend>
+            <p>Задайте строгие правила для колонок. Например, колонка "Цена товара" из исходного файла всегда должна попадать в колонку "Price" в шаблоне.</p>
+            <div id="manual-rules-container" style="margin-top: 1rem;">
+                </div>
+            <button type="button" id="add-manual-rule" class="btn btn-secondary">+ Добавить правило</button>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;">Сохранить шаблон</button>
+    </form>
+</div>
+{% endblock %}
