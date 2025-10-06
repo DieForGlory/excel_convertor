@@ -61,7 +61,7 @@ def add_entry(canonical_name, synonyms_str):
     # Мы просто присваиваем новое значение.
     # Это работает и для создания новой записи, и для полного обновления существующей.
     dictionary[canonical_name] = sorted(list(new_synonyms))
-
+    print("hi")
     save_dictionary(dictionary)
     print(f"  [ЛОГ СЛОВАРЯ] Запись '{canonical_name}' сохранена с синонимами: {dictionary[canonical_name]}")
 
