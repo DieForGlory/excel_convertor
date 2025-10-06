@@ -1,3 +1,5 @@
+# excel_processor.py
+
 import io
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
@@ -5,7 +7,7 @@ from thefuzz import fuzz
 
 import dictionary_matcher
 import value_dictionary_handler
-from dadata_service import apply_post_processing
+from geoprocessor import process_geodata  # <<< ИЗМЕНЕНИЕ: Импортируем новый обработчик
 from utils import normalize_header, get_col_from_cell
 
 
@@ -175,7 +177,8 @@ def process_excel_hybrid(task_id, source_file_obj, template_file_obj, ranges, te
         _apply_value_dictionary(template_ws, task_id, task_statuses)
 
         task_statuses[task_id]['status'] = 'Запускаю пост-обработку...'
-        apply_post_processing(task_id, template_wb, t_start_row, post_function, task_statuses)
+        # <<< ИЗМЕНЕНИЕ: Вызываем нашу новую функцию для работы с геоданными
+        process_geodata(task_id, template_wb, t_start_row, post_function, task_statuses)
 
         task_statuses[task_id]['status'] = 'Сохраняю результат...'
         processed_file_obj = io.BytesIO()
